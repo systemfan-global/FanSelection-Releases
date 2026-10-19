@@ -1,0 +1,1296 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/png" href="SF.png">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fan Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Bố cục: thanh trên cùng (nút Export PDF ở góc phải), cột nhập liệu bên trái, kết quả + phiếu đặc tính khổ A4 bên phải. */
+:root{
+  --bg:#edf0f3; --panel:#ffffff; --fg:#13202b; --muted:#566673; --line:#d3dae1; --field:#f4f7f9;
+  --accent:#0a6b8a; --accent-fg:#ffffff; --warn:#9a3f0b; --warn-bg:#fcefe4; --info:#0a5a78; --info-bg:#e6f2f7; --ok:#1c7447;
+  --font-ui:'IBM Plex Sans',system-ui,'Segoe UI',Roboto,Arial,sans-serif;
+  --font-head:'IBM Plex Sans Condensed','IBM Plex Sans',system-ui,Arial,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f161c; --panel:#18222b; --fg:#e5ecf1; --muted:#93a5b3; --line:#2a3945; --field:#111a21;
+    --accent:#52b6d3; --accent-fg:#04212b; --warn:#f0a36d; --warn-bg:#2a1d12; --info:#7cc6df; --info-bg:#102530; --ok:#5fc592;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --panel:#18222b; --fg:#e5ecf1; --muted:#93a5b3; --line:#2a3945; --field:#111a21;
+  --accent:#52b6d3; --accent-fg:#04212b; --warn:#f0a36d; --warn-bg:#2a1d12; --info:#7cc6df; --info-bg:#102530; --ok:#5fc592;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--font-ui);-webkit-text-size-adjust:100%}
+h1,h2,h3{margin:0}
+
+/* ---------- thanh trên ---------- */
+.bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar h1{font:600 21px/1.1 var(--font-head);letter-spacing:.01em}
+.bar .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:6px;padding:9px 16px;cursor:pointer;
+  background:var(--accent);color:var(--accent-fg);font:600 14px/1 var(--font-ui);white-space:nowrap}
+.btn:hover{filter:brightness(1.08)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn svg{width:16px;height:16px}
+
+/* ---------- bố cục ---------- */
+.layout{display:grid;grid-template-columns:minmax(300px,350px) minmax(0,1fr);gap:20px;padding:20px;max-width:1320px;margin:0 auto;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.side{position:sticky;top:64px;max-height:calc(100vh - 80px);overflow:auto}
+.stage{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);padding:16px}
+  .side{position:static;max-height:none}
+  .bar{padding:10px 16px}
+  .bar .sub{display:none}
+}
+
+fieldset{border:0;margin:0 0 14px;padding:0;min-width:0}
+legend{font:600 11px/1 var(--font-ui);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:0 0 8px}
+.fld{display:grid;grid-template-columns:1fr 150px;align-items:center;gap:10px;margin-bottom:8px}
+.fld>span{font-size:13px}
+.inp{display:flex;align-items:center;background:var(--field);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.inp input,.inp select{flex:1;min-width:0;border:0;background:transparent;color:var(--fg);font:500 14px var(--font-mono);padding:8px 9px;width:100%}
+.inp select{font-family:var(--font-ui)}
+.inp em{font-style:normal;font-size:12px;color:var(--muted);padding-right:9px;white-space:nowrap}
+.inp:focus-within{border-color:var(--accent)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:2px 0 10px}
+.seg label{position:relative;text-align:center;font-size:13px;cursor:pointer}
+.seg input{position:absolute;opacity:0;inset:0}
+.seg span{display:block;padding:7px 6px;background:var(--field)}
+.seg input:checked+span{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
+.hint{font-size:12px;color:var(--muted);margin:2px 0 0}
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-size:13px;font-weight:500}
+details .fld{margin-top:8px}
+.inp input[type=text]{font-family:var(--font-ui)}
+
+/* ---------- thông báo + kết quả ---------- */
+#notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+#notes li{padding:9px 12px;border-radius:6px;font-size:13px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+#notes li.warn{background:var(--warn-bg);color:var(--warn)}
+#notes li.info{background:var(--info-bg);color:var(--info)}
+#notes li.empty{display:none}
+.link{background:none;border:0;padding:0;color:inherit;text-decoration:underline;font:inherit;font-weight:600;cursor:pointer}
+.result h2{font:600 11px/1 var(--font-ui);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px;margin:0}
+.kv div{min-width:0}
+.kv dt{font-size:12px;color:var(--muted)}
+.kv dd{margin:2px 0 0;font:500 18px/1.2 var(--font-mono);font-variant-numeric:tabular-nums}
+.kv dd small{font:400 12px var(--font-ui);color:var(--muted);margin-left:3px}
+.model{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.model b{font:600 22px/1 var(--font-head)}
+.model span{color:var(--muted);font-size:13px}
+
+
+/* ---------- Save PDF + thư mục ---------- */
+.barbtns{display:flex;gap:8px}
+.btn.alt{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
+.fdcol{position:sticky;top:64px;display:flex;flex-direction:column;min-width:0}
+.folder{max-height:calc(100vh - 250px);overflow:auto;display:flex;flex-direction:column;gap:10px}
+.fd-boy{position:relative;z-index:3;margin:-14px auto 0;width:100%;pointer-events:none;text-align:center}
+#fdBoy{max-width:230px;margin:0 auto}
+.fd-bin{position:absolute;right:2px;bottom:26px;width:56px;transform-origin:50% 100%}
+.fd-bin .lid{transform-box:view-box;transform-origin:6px 18px;transition:transform .35s cubic-bezier(.3,1.5,.5,1)}
+.fd-bin.open .lid{transform:rotate(-62deg)}
+.fd-boy svg{display:block;overflow:visible;filter:drop-shadow(0 4px 5px rgba(0,0,0,.12))}
+.fd-boy .tremble{animation:bytremble .32s ease-in-out infinite}
+.fd-boy .sweat{animation:bysweat 1.4s ease-in infinite}
+.fd-say{margin:2px 0 0;font:600 12px/1.3 var(--font-ui);color:var(--muted)}
+@keyframes bytremble{0%,100%{transform:translateX(-1px)}50%{transform:translateX(1.2px)}}
+@keyframes bysweat{0%{transform:translateY(-3px)}100%{transform:translateY(12px)}}
+@media (prefers-reduced-motion:reduce){.fd-boy *{animation:none!important}}
+.fd-head{display:flex;align-items:center;gap:8px;color:var(--accent)}
+.fd-head svg{width:20px;height:20px;flex:none}
+.fd-head input{flex:1;min-width:0;font:600 14px/1.2 var(--font-ui);color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 8px}
+.fd-count{font-size:12px;color:var(--muted);white-space:nowrap}
+.fd-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.fd-list li{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;background:var(--field)}
+.fd-ico{flex:none;width:30px;height:34px;border-radius:3px;background:var(--accent);color:var(--accent-fg);font:700 9px/34px var(--font-ui);text-align:center}
+.fd-txt{min-width:0;flex:1}
+.fd-txt b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fd-txt small{display:block;font-size:11px;color:var(--muted);line-height:1.3}
+.fd-act{display:flex;gap:4px;flex:none}
+.fd-act button{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:5px;font:600 11px/1 var(--font-ui);padding:6px 7px;cursor:pointer}
+.fd-act button:hover{border-color:var(--accent);color:var(--accent)}
+.fd-list li.fd-empty{display:block;border-style:dashed;color:var(--muted);font-size:13px;text-align:center;padding:18px 10px;background:transparent}
+.fd-msg{margin:0;font-size:12px;line-height:1.4;padding:8px 10px;border-radius:6px;background:var(--info-bg);color:var(--info)}
+.fd-msg.warn{background:var(--warn-bg);color:var(--warn)}
+.fd-msg.ok{color:var(--ok)}
+.fd-foot{display:flex;flex-direction:column;gap:8px;margin-top:2px;position:sticky;bottom:-16px;background:var(--panel);padding:8px 0 16px}
+.fd-foot .btn{justify-content:center}
+.fd-clear{border:0;background:none;color:var(--muted);font:500 12px/1 var(--font-ui);cursor:pointer;padding:6px;text-decoration:underline}
+.fd-clear.arm{color:var(--warn);font-weight:700}
+.fd-clear:disabled{opacity:.4;cursor:not-allowed}
+@media (min-width:1281px){.layout{grid-template-columns:minmax(300px,350px) minmax(0,1fr) minmax(270px,310px);max-width:1680px}}
+@media (min-width:901px) and (max-width:1280px){.fdcol{grid-column:1/-1;position:static}.folder{max-height:none}}
+@media (max-width:900px){.fdcol{position:static}.folder{max-height:none}.barbtns .btn{padding:9px 11px}}
+
+
+/* ---------- nền động nhẹ: quạt, gió, mây ---------- */
+.layout,.bar{position:relative;z-index:1}
+.bar{z-index:5}
+.panel{background:color-mix(in srgb,var(--panel) 86%,transparent);backdrop-filter:blur(8px)}
+.sheet{background:#fff}
+
+/* ---------- nền động: ảnh kỹ thuật + cánh quạt quay nhẹ + làn gió ---------- */
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#eaf3f9}
+#bg svg{position:absolute;inset:0;display:block}
+.bgFan{animation:bgspin 75s linear infinite}
+.bgW{stroke:#3fb7ec;stroke-width:1.6;stroke-dasharray:110 520;opacity:.6;animation:bgwind linear infinite}
+.bgW.g{stroke-width:6;opacity:.12;filter:blur(2px)}
+@keyframes bgspin{to{transform:rotate(360deg)}}
+@keyframes bgwind{from{stroke-dashoffset:630}to{stroke-dashoffset:0}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #bg{background:#0d1a24}:root:not([data-theme="light"]) .bgBase,:root:not([data-theme="light"]) .bgBlue{filter:brightness(.3) saturate(.8)}}
+:root[data-theme="dark"] #bg{background:#0d1a24}:root[data-theme="dark"] .bgBase,:root[data-theme="dark"] .bgBlue{filter:brightness(.3) saturate(.8)}
+@media (prefers-reduced-motion:reduce){#bg *{animation:none!important}}
+@media print{#bg{display:none!important}}
+
+/* ẨN khỏi giao diện: khung gợi ý (#notes) và khung kết quả điểm làm việc (#result).
+   Code tính toán vẫn chạy bình thường, chỉ không hiển thị. Muốn hiện lại: xoá dòng bên dưới. */
+#notes, #result{display:none!important}
+
+/* ---------- phiếu đặc tính (luôn là giấy trắng) ---------- */
+.sheet{
+  --s-paper:#ffffff; --s-ink:#000000;
+  background:var(--s-paper);color:var(--s-ink);font:12px/1.4 var(--font-ui);padding:26px 44px;width:100%;max-width:820px;margin:0 auto;
+  border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.10),0 10px 30px rgba(0,0,0,.14);min-width:0;
+}
+.sheet+.sheet{margin-top:4px}
+.logo-slot{position:relative;height:60px;display:flex;justify-content:flex-end;align-items:center}
+.tagbox{position:absolute;left:0;top:50%;transform:translateY(-50%);border:1px solid var(--s-ink);padding:4px 12px;font:600 15px/1.2 var(--font-head);background:#fff;max-width:60%}
+.tagbox[hidden]{display:none}
+.logo-slot img{max-height:100%;max-width:220px;object-fit:contain;display:block}
+.logo-add{height:100%;min-width:150px;border:1.5px dashed #8a949c;border-radius:4px;background:transparent;color:#5b666e;font:500 12px var(--font-ui);cursor:pointer;padding:0 14px}
+.logo-add:hover{background:#f1f4f6;border-color:#4b5660}
+.logo-add[hidden],.logo-del[hidden]{display:none}
+.logo-del{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid #8a949c;background:#fff;color:#333;font:14px/1 var(--font-ui);cursor:pointer;padding:0}
+.meta{display:grid;grid-template-columns:1fr auto;gap:16px;margin:6px 0 12px;font-size:12px}
+.meta p{margin:1px 0}
+.meta .r{text-align:right}
+.meta b{font-weight:600}
+.modelbar{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--s-ink);padding:5px 9px;font:600 15px/1.2 var(--font-head);margin-bottom:6px}
+.sub2{font-size:11.5px;line-height:1.45;margin-bottom:8px}
+.chart{display:block;width:100%;height:auto;overflow:visible}
+.chart text{font-family:'IBM Plex Sans',system-ui,Arial,sans-serif;fill:var(--s-ink);font-size:10px}
+.chart .tt{font-size:11px;font-weight:500}
+.foot{margin-top:8px;font-size:9.5px;color:var(--s-ink);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+@media (max-width:600px){.sheet{padding:14px 38px}.meta{grid-template-columns:1fr}.meta .r{text-align:left}.logo-slot{height:40px}}
+
+/* ---------- in / xuất PDF ---------- */
+@page{size:A4;margin:0}
+@media print{
+  html,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .bar,.side,.noprint{display:none!important}
+  .layout{display:block;padding:0;max-width:none}
+  .stage{display:block}
+  .sheet{box-shadow:none;border-radius:0;padding:10mm 12mm;max-width:none;margin:0;break-inside:avoid;height:296mm;overflow:hidden}   /* đúng 1 trang A4, không bao giờ tràn sang trang 2 */
+  .foot{margin-top:0}
+  .logo-slot{height:19mm}
+  .logo-slot img{max-width:60mm}
+}
+</style>
+</head>
+<body>
+<div id="bg" aria-hidden="true"><svg id="bgSvg" viewBox="0 0 1725 912" preserveAspectRatio="xMidYMid slice" width="100%" height="100%"><defs><linearGradient id="skyG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f5fafd"/><stop offset=".55" stop-color="#e9f4fa"/><stop offset="1" stop-color="#dcecf6"/></linearGradient>
+<pattern id="gm" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#8fbcd8" stroke-opacity=".2" stroke-width=".7"/></pattern>
+<pattern id="gM" width="120" height="120" patternUnits="userSpaceOnUse"><path d="M120 0H0V120" fill="none" stroke="#7fb1d2" stroke-opacity=".3" stroke-width=".9"/></pattern>
+<radialGradient id="vigR" cx="1750" cy="400" r="760" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4f9fd0" stop-opacity=".78"/><stop offset=".45" stop-color="#7db9dd" stop-opacity=".35"/><stop offset="1" stop-color="#bfdff0" stop-opacity="0"/></radialGradient>
+<radialGradient id="vigBL" cx="0" cy="920" r="620" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#5fb1de" stop-opacity=".7"/><stop offset="1" stop-color="#bfe0f2" stop-opacity="0"/></radialGradient>
+<radialGradient id="vigBR" cx="1725" cy="912" r="430" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3f8fc4" stop-opacity=".6"/><stop offset="1" stop-color="#9ccbe6" stop-opacity="0"/></radialGradient><linearGradient id="blG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3f9fd" stop-opacity=".85"/><stop offset="1" stop-color="#8fc0de" stop-opacity=".55"/></linearGradient>
+<radialGradient id="hubG" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#f7fbfe" stop-opacity=".95"/><stop offset="1" stop-color="#a9cfe7" stop-opacity=".85"/></radialGradient></defs>
+  <g class="bgBase">
+  <rect width="1725" height="912" fill="url(#skyG)"/>
+  <rect width="1725" height="912" fill="url(#vigR)"/><rect width="1725" height="912" fill="url(#vigBL)"/><rect width="1725" height="912" fill="url(#vigBR)"/>
+</g>
+<g class="bgBlue" fill="none" stroke="#5f9fc8" stroke-width="1.1" stroke-opacity=".6">
+  <circle cx="52" cy="148" r="108"/><circle cx="52" cy="148" r="72" stroke-dasharray="7 6" stroke-opacity=".5"/><circle cx="52" cy="148" r="44" stroke-opacity=".45"/>
+  <path d="M52 30V300M0 148H290M170 18V240M0 302H140" stroke-opacity=".5"/><path d="M193 75H327" stroke-dasharray="8 5"/>
+  <path d="M0 480 103 378" stroke-opacity=".6"/><path d="M0 563H216M0 657H96" stroke-opacity=".25"/>
+  <path d="M507 60H563M535 32V88" stroke-opacity=".7"/><path d="M84 657H108M96 645V669" stroke-opacity=".6"/><path d="M205 563H227M216 552V574" stroke-opacity=".6"/>
+  <g fill="#fff" stroke-opacity=".75"><circle cx="82" cy="148" r="3.6"/><circle cx="159" cy="148" r="3.6"/><circle cx="171" cy="148" r="3.6"/><circle cx="141" cy="75" r="3.6"/><circle cx="52" cy="427" r="3.6"/><circle cx="103" cy="378" r="2.6" fill="#6aaed6"/></g>
+  <path d="M217 222 222 228 217 234 212 228Z" fill="#6aaed6"/>
+  <path d="M1378 850H1725M1650 790V912" stroke-opacity=".55"/><circle cx="1650" cy="912" r="62" stroke-opacity=".6"/><circle cx="1650" cy="912" r="38" stroke-dasharray="6 5" stroke-opacity=".5"/>
+  <g fill="#fff"><circle cx="1398" cy="850" r="3"/><circle cx="1420" cy="850" r="3"/><circle cx="1466" cy="850" r="3"/><circle cx="1590" cy="850" r="3.6"/><circle cx="1650" cy="850" r="3.6"/></g>
+  <path d="M1385 388H1725" stroke-opacity=".5"/><path d="M1737 60V716" stroke-opacity=".25" stroke-dasharray="5 7"/>
+</g>
+<g fill="none" stroke="#45b8ee" stroke-linecap="round" class="bgStatic"><path d="M-20 905 C 110 850, 250 735, 420 726 S 650 792, 790 816 S 1050 788, 1230 726 S 1430 640, 1540 590" stroke-width="1.2" stroke-opacity="0.5"/><path d="M-20 880 C 120 822, 270 718, 440 716 S 660 776, 800 800 S 1060 772, 1240 710 S 1440 624, 1560 572" stroke-width="0.8" stroke-opacity="0.28"/><path d="M30 912 C 150 850, 300 748, 470 742 S 690 800, 830 826 S 1090 796, 1270 735 S 1460 650, 1580 600" stroke-width="0.8" stroke-opacity="0.28"/><path d="M-20 860 C 130 800, 290 700, 460 700 S 680 758, 820 784 S 1080 756, 1250 694 S 1450 608, 1580 556" stroke-width="1.2" stroke-opacity="0.5"/><path d="M860 292 C 1000 252, 1140 222, 1236 172 S 1340 100, 1400 86 S 1560 44, 1730 -8" stroke-width="0.8" stroke-opacity="0.28"/><path d="M900 300 C 1030 262, 1170 236, 1262 186 S 1380 118, 1440 104 S 1580 66, 1730 22" stroke-width="0.8" stroke-opacity="0.28"/><path d="M980 292 C 1100 268, 1210 250, 1290 204 S 1420 130, 1480 120 S 1620 92, 1730 60" stroke-width="1.2" stroke-opacity="0.5"/></g>
+  <g transform="translate(1737 388)"><g class="bgFan">
+  <circle r="314" fill="none" stroke="#7fb1d2" stroke-opacity=".55" stroke-width="1.6"/><circle r="298" fill="none" stroke="#9cc4de" stroke-opacity=".5" stroke-width="1"/>
+  <circle r="160" fill="none" stroke="#9cc4de" stroke-opacity=".35" stroke-width="1" stroke-dasharray="6 8"/>
+  <g transform="rotate(0)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(36)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(72)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(108)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(144)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(180)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(216)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(252)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(288)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g><g transform="rotate(324)"><path d="M-15 -72 C -52 -122 -74 -212 -36 -292 C -16 -302 8 -300 20 -288 C 34 -212 32 -132 15 -72Z" fill="url(#blG)" stroke="#7fb1d2" stroke-width="1.3" stroke-opacity=".85"/><path d="M-4 -90 C -22 -140 -30 -210 -14 -282" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/></g>
+  <circle r="78" fill="url(#hubG)" stroke="#7fb1d2" stroke-width="1.5" stroke-opacity=".8"/><circle r="58" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2"/>
+  <circle r="24" fill="#dcecf6" stroke="#7fb1d2" stroke-width="1.5"/><circle cx="40.0" cy="0.0" r="3.2" fill="#8fbad6"/><circle cx="20.0" cy="34.6" r="3.2" fill="#8fbad6"/><circle cx="-20.0" cy="34.6" r="3.2" fill="#8fbad6"/><circle cx="-40.0" cy="0.0" r="3.2" fill="#8fbad6"/><circle cx="-20.0" cy="-34.6" r="3.2" fill="#8fbad6"/><circle cx="20.0" cy="-34.6" r="3.2" fill="#8fbad6"/>
+</g></g>
+  <g fill="none" stroke-linecap="round"><path class="bgW g" d="M-20 905 C 110 850, 250 735, 420 726 S 650 792, 790 816 S 1050 788, 1230 726 S 1430 640, 1540 590" style="animation-duration:8.0s;animation-delay:-0.0s"/><path class="bgW" d="M-20 905 C 110 850, 250 735, 420 726 S 650 792, 790 816 S 1050 788, 1230 726 S 1430 640, 1540 590" style="animation-duration:8.0s;animation-delay:-0.0s"/><path class="bgW g" d="M-20 880 C 120 822, 270 718, 440 716 S 660 776, 800 800 S 1060 772, 1240 710 S 1440 624, 1560 572" style="animation-duration:9.7s;animation-delay:-7.4s"/><path class="bgW" d="M-20 880 C 120 822, 270 718, 440 716 S 660 776, 800 800 S 1060 772, 1240 710 S 1440 624, 1560 572" style="animation-duration:9.7s;animation-delay:-7.4s"/><path class="bgW g" d="M30 912 C 150 850, 300 748, 470 742 S 690 800, 830 826 S 1090 796, 1270 735 S 1460 650, 1580 600" style="animation-duration:11.4s;animation-delay:-6.8s"/><path class="bgW" d="M30 912 C 150 850, 300 748, 470 742 S 690 800, 830 826 S 1090 796, 1270 735 S 1460 650, 1580 600" style="animation-duration:11.4s;animation-delay:-6.8s"/><path class="bgW g" d="M-20 860 C 130 800, 290 700, 460 700 S 680 758, 820 784 S 1080 756, 1250 694 S 1450 608, 1580 556" style="animation-duration:13.1s;animation-delay:-6.2s"/><path class="bgW" d="M-20 860 C 130 800, 290 700, 460 700 S 680 758, 820 784 S 1080 756, 1250 694 S 1450 608, 1580 556" style="animation-duration:13.1s;animation-delay:-6.2s"/><path class="bgW g" d="M860 292 C 1000 252, 1140 222, 1236 172 S 1340 100, 1400 86 S 1560 44, 1730 -8" style="animation-duration:8.8s;animation-delay:-8.4s"/><path class="bgW" d="M860 292 C 1000 252, 1140 222, 1236 172 S 1340 100, 1400 86 S 1560 44, 1730 -8" style="animation-duration:8.8s;animation-delay:-8.4s"/><path class="bgW g" d="M900 300 C 1030 262, 1170 236, 1262 186 S 1380 118, 1440 104 S 1580 66, 1730 22" style="animation-duration:10.5s;animation-delay:-9.5s"/><path class="bgW" d="M900 300 C 1030 262, 1170 236, 1262 186 S 1380 118, 1440 104 S 1580 66, 1730 22" style="animation-duration:10.5s;animation-delay:-9.5s"/><path class="bgW g" d="M980 292 C 1100 268, 1210 250, 1290 204 S 1420 130, 1480 120 S 1620 92, 1730 60" style="animation-duration:12.2s;animation-delay:-10.6s"/><path class="bgW" d="M980 292 C 1100 268, 1210 250, 1290 204 S 1420 130, 1480 120 S 1620 92, 1730 60" style="animation-duration:12.2s;animation-delay:-10.6s"/></g><circle r="2.0" fill="#4fc3f0"><animateMotion dur="10.0s" begin="-0.0s" repeatCount="indefinite" path="M-20 905 C 110 850, 250 735, 420 726 S 650 792, 790 816 S 1050 788, 1230 726 S 1430 640, 1540 590"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="10.0s" begin="-0.0s" repeatCount="indefinite"/></circle><circle r="2.6" fill="#4fc3f0"><animateMotion dur="13.0s" begin="-5.0s" repeatCount="indefinite" path="M-20 905 C 110 850, 250 735, 420 726 S 650 792, 790 816 S 1050 788, 1230 726 S 1430 640, 1540 590"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="13.0s" begin="-5.0s" repeatCount="indefinite"/></circle><circle r="2.0" fill="#4fc3f0"><animateMotion dur="10.9s" begin="-1.9s" repeatCount="indefinite" path="M-20 880 C 120 822, 270 718, 440 716 S 660 776, 800 800 S 1060 772, 1240 710 S 1440 624, 1560 572"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="10.9s" begin="-1.9s" repeatCount="indefinite"/></circle><circle r="2.6" fill="#4fc3f0"><animateMotion dur="13.9s" begin="-6.9s" repeatCount="indefinite" path="M-20 880 C 120 822, 270 718, 440 716 S 660 776, 800 800 S 1060 772, 1240 710 S 1440 624, 1560 572"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="13.9s" begin="-6.9s" repeatCount="indefinite"/></circle><circle r="2.0" fill="#4fc3f0"><animateMotion dur="11.8s" begin="-3.8s" repeatCount="indefinite" path="M30 912 C 150 850, 300 748, 470 742 S 690 800, 830 826 S 1090 796, 1270 735 S 1460 650, 1580 600"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="11.8s" begin="-3.8s" repeatCount="indefinite"/></circle><circle r="2.6" fill="#4fc3f0"><animateMotion dur="14.8s" begin="-8.8s" repeatCount="indefinite" path="M30 912 C 150 850, 300 748, 470 742 S 690 800, 830 826 S 1090 796, 1270 735 S 1460 650, 1580 600"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="14.8s" begin="-8.8s" repeatCount="indefinite"/></circle><circle r="2.0" fill="#4fc3f0"><animateMotion dur="12.7s" begin="-5.7s" repeatCount="indefinite" path="M-20 860 C 130 800, 290 700, 460 700 S 680 758, 820 784 S 1080 756, 1250 694 S 1450 608, 1580 556"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="12.7s" begin="-5.7s" repeatCount="indefinite"/></circle><circle r="2.6" fill="#4fc3f0"><animateMotion dur="15.7s" begin="-10.7s" repeatCount="indefinite" path="M-20 860 C 130 800, 290 700, 460 700 S 680 758, 820 784 S 1080 756, 1250 694 S 1450 608, 1580 556"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="15.7s" begin="-10.7s" repeatCount="indefinite"/></circle><circle r="2.0" fill="#4fc3f0"><animateMotion dur="13.6s" begin="-7.6s" repeatCount="indefinite" path="M860 292 C 1000 252, 1140 222, 1236 172 S 1340 100, 1400 86 S 1560 44, 1730 -8"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="13.6s" begin="-7.6s" repeatCount="indefinite"/></circle><circle r="2.6" fill="#4fc3f0"><animateMotion dur="16.6s" begin="-12.6s" repeatCount="indefinite" path="M860 292 C 1000 252, 1140 222, 1236 172 S 1340 100, 1400 86 S 1560 44, 1730 -8"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="16.6s" begin="-12.6s" repeatCount="indefinite"/></circle><circle r="2.0" fill="#4fc3f0"><animateMotion dur="14.5s" begin="-9.5s" repeatCount="indefinite" path="M900 300 C 1030 262, 1170 236, 1262 186 S 1380 118, 1440 104 S 1580 66, 1730 22"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="14.5s" begin="-9.5s" repeatCount="indefinite"/></circle><circle r="2.6" fill="#4fc3f0"><animateMotion dur="17.5s" begin="-14.5s" repeatCount="indefinite" path="M900 300 C 1030 262, 1170 236, 1262 186 S 1380 118, 1440 104 S 1580 66, 1730 22"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="17.5s" begin="-14.5s" repeatCount="indefinite"/></circle><circle r="2.0" fill="#4fc3f0"><animateMotion dur="15.4s" begin="-11.4s" repeatCount="indefinite" path="M980 292 C 1100 268, 1210 250, 1290 204 S 1420 130, 1480 120 S 1620 92, 1730 60"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="15.4s" begin="-11.4s" repeatCount="indefinite"/></circle><circle r="2.6" fill="#4fc3f0"><animateMotion dur="18.4s" begin="-16.4s" repeatCount="indefinite" path="M980 292 C 1100 268, 1210 250, 1290 204 S 1420 130, 1480 120 S 1620 92, 1730 60"/><animate attributeName="opacity" values="0;.85;.85;0" keyTimes="0;.15;.85;1" dur="18.4s" begin="-16.4s" repeatCount="indefinite"/></circle>
+<path d="M0 0 L-11 -4 L-11 4Z" fill="#2fb1ec"><animateMotion dur="11.0s" begin="-0.0s" repeatCount="indefinite" rotate="auto" path="M-20 905 C 110 850, 250 735, 420 726 S 650 792, 790 816 S 1050 788, 1230 726 S 1430 640, 1540 590"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.12;.88;1" dur="11.0s" begin="-0.0s" repeatCount="indefinite"/></path><path d="M0 0 L-11 -4 L-11 4Z" fill="#2fb1ec"><animateMotion dur="12.3s" begin="-3.1s" repeatCount="indefinite" rotate="auto" path="M-20 880 C 120 822, 270 718, 440 716 S 660 776, 800 800 S 1060 772, 1240 710 S 1440 624, 1560 572"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.12;.88;1" dur="12.3s" begin="-3.1s" repeatCount="indefinite"/></path><path d="M0 0 L-11 -4 L-11 4Z" fill="#2fb1ec"><animateMotion dur="13.6s" begin="-6.2s" repeatCount="indefinite" rotate="auto" path="M30 912 C 150 850, 300 748, 470 742 S 690 800, 830 826 S 1090 796, 1270 735 S 1460 650, 1580 600"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.12;.88;1" dur="13.6s" begin="-6.2s" repeatCount="indefinite"/></path><path d="M0 0 L-11 -4 L-11 4Z" fill="#2fb1ec"><animateMotion dur="14.9s" begin="-9.3s" repeatCount="indefinite" rotate="auto" path="M-20 860 C 130 800, 290 700, 460 700 S 680 758, 820 784 S 1080 756, 1250 694 S 1450 608, 1580 556"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.12;.88;1" dur="14.9s" begin="-9.3s" repeatCount="indefinite"/></path><path d="M0 0 L-11 -4 L-11 4Z" fill="#2fb1ec"><animateMotion dur="16.2s" begin="-12.4s" repeatCount="indefinite" rotate="auto" path="M860 292 C 1000 252, 1140 222, 1236 172 S 1340 100, 1400 86 S 1560 44, 1730 -8"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.12;.88;1" dur="16.2s" begin="-12.4s" repeatCount="indefinite"/></path><path d="M0 0 L-11 -4 L-11 4Z" fill="#2fb1ec"><animateMotion dur="17.5s" begin="-15.5s" repeatCount="indefinite" rotate="auto" path="M900 300 C 1030 262, 1170 236, 1262 186 S 1380 118, 1440 104 S 1580 66, 1730 22"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.12;.88;1" dur="17.5s" begin="-15.5s" repeatCount="indefinite"/></path><path d="M0 0 L-11 -4 L-11 4Z" fill="#2fb1ec"><animateMotion dur="18.8s" begin="-18.6s" repeatCount="indefinite" rotate="auto" path="M980 292 C 1100 268, 1210 250, 1290 204 S 1420 130, 1480 120 S 1620 92, 1730 60"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.12;.88;1" dur="18.8s" begin="-18.6s" repeatCount="indefinite"/></path></svg></div>
+
+<header class="bar">
+  <div class="barbtns">
+    <button class="btn" id="btnSave" type="button" title="Thêm PDF này vào thư mục bên phải">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+      Save PDF
+    </button>
+    <button class="btn alt" id="btnPdf" type="button" title="Mở hộp thoại in, chọn 'Lưu dưới dạng PDF'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+    Export PDF
+  </button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <form id="f" class="panel side" autocomplete="off" onsubmit="return false">
+    <fieldset>
+      <legend>Điểm làm việc 1</legend>
+      <label class="fld"><span>Lưu lượng 1</span><div class="inp"><input id="inQ" type="number" inputmode="decimal" min="1" step="any" value="15000"><em>m³/h</em></div></label>
+      <label class="fld"><span>Áp suất 1</span><div class="inp"><input id="inP" type="number" inputmode="decimal" min="1" step="any" value="300"><em>Pa</em></div></label>
+      <label class="fld"><span>Công suất động cơ 1</span><div class="inp"><input id="inMotor" type="number" inputmode="decimal" min="0" step="any" placeholder="Tự chọn"><em>kW</em></div></label>
+      <div class="seg" role="radiogroup" aria-label="Loại áp suất nhập vào">
+        <label><input type="radio" name="basis" value="static" checked><span>Áp suất tĩnh</span></label>
+        <label><input type="radio" name="basis" value="total"><span>Áp suất toàn phần</span></label>
+      </div>
+      <label class="fld"><span>Nhiệt độ khí</span><div class="inp"><input id="inT" type="number" inputmode="decimal" step="any" value="20"><em>°C</em></div></label>
+      <label class="fld"><span>Độ cao so mực biển</span><div class="inp"><input id="inAlt" type="number" inputmode="decimal" min="0" step="any" value="0"><em>m</em></div></label>
+      <p class="hint">Để trống công suất động cơ để chương trình chọn theo dãy chuẩn IEC.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Điểm làm việc 2 (tuỳ chọn)</legend>
+      <label class="fld"><span>Lưu lượng 2</span><div class="inp"><input id="inQ2" type="number" inputmode="decimal" min="1" step="any" placeholder="Để trống = 1 điểm"><em>m³/h</em></div></label>
+      <label class="fld"><span>Áp suất 2</span><div class="inp"><input id="inP2" type="number" inputmode="decimal" min="1" step="any"><em>Pa</em></div></label>
+      <label class="fld"><span>Công suất động cơ 2</span><div class="inp"><input id="inMotor2" type="number" inputmode="decimal" min="0" step="any" placeholder="Tự chọn"><em>kW</em></div></label>
+      <p class="hint" id="duty2Info">Cùng một quạt, điểm 2 dùng tốc độ khác (tự tính theo định luật quạt) nên vẽ thêm 1 đường đặc tính.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Động cơ</legend>
+      <label class="fld"><span>Số cực (50 Hz)</span><div class="inp"><select id="inPoles">
+        <option value="2">2P</option><option value="4" selected>4P</option><option value="6">6P</option><option value="8">8P</option></select></div></label>
+      <label class="fld"><span>Tốc độ quạt (điểm 1)</span><div class="inp"><input id="inRpm" type="number" inputmode="decimal" min="100" step="any" value="1460"><em>rpm</em></div></label>
+      <label class="fld"><span>Điện áp 3 pha</span><div class="inp"><select id="inV"><option value="380" selected>380 V</option><option value="220">220 V</option></select></div></label>
+      <label class="fld"><span>Truyền động</span><div class="inp"><select id="inDrive"><option value="1" selected>Trực tiếp</option><option value="0.95">Dây đai (η 0.95)</option></select></div></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Cánh quạt</legend>
+      <label class="fld"><span>Đường kính cánh</span><div class="inp"><input id="inD" type="number" inputmode="decimal" min="100" step="any" placeholder="Tự tính"><em>mm</em></div></label>
+      <p class="hint">Để trống để chương trình tự chọn đường kính, bề rộng cánh và số cửa hút.</p>
+    </fieldset>
+
+    <details open>
+      <summary>Thông tin trên phiếu</summary>
+      <label class="fld"><span>Tên quạt (ô góc trái)</span><div class="inp"><input id="inTag" type="text" placeholder="VD: K-SEF-2F-01~02" value=""></div></label>
+      <label class="fld"><span>Model (thanh tiêu đề)</span><div class="inp"><input id="inModel" type="text" placeholder="Tự động" value=""></div></label>
+      <label class="fld"><span>Tốc độ hiển thị</span><div class="inp"><input id="inSpeedLabel" type="text" list="speedList" placeholder="Để trống = không in" value="">
+        <datalist id="speedList"><option value="4P"><option value="6P"><option value="4P/6P"><option value="1460 Rpm"><option value="970 Rpm"><option value="1460/970 Rpm"></datalist></div></label>
+      <label class="fld"><span>Dự án</span><div class="inp"><input id="inProj" type="text" value="Fan Selection"></div></label>
+      <label class="fld"><span>Mã hàng</span><div class="inp"><input id="inItem" type="text" value="Temp 1"></div></label>
+      <label class="fld"><span>Báo giá</span><div class="inp"><input id="inQuote" type="text" value="Temp"></div></label>
+      <label class="fld"><span>Ngày</span><div class="inp"><input id="inDate" type="text"></div></label>
+    </details>
+  </form>
+
+  <section class="stage">
+    <ul id="notes" class="noprint" aria-live="polite"></ul>
+
+    <div class="panel result noprint" id="result"></div>
+
+    <article class="sheet" id="sheet1">
+      <div class="logo-slot" id="logoSlot">
+        <div class="tagbox" id="shTagBox" hidden><span id="shTag"></span></div>
+        <button type="button" class="logo-add noprint" id="logoBtn" title="Chọn ảnh logo (PNG/JPG)" hidden>+ Thêm logo</button>
+        <img id="logoImg" alt="Logo" src="Systemfan.png">
+        <button type="button" class="logo-del noprint" id="logoDel" title="Xoá logo">&times;</button>
+        <input type="file" id="logoFile" accept="image/*" hidden>
+      </div>
+      <div class="meta">
+        <div><p>Project : <span id="shProj"></span></p><p>Item Ref : <span id="shItem"></span></p></div>
+        <div class="r"><p>Quote Ref : <span id="shQuote"></span></p><p>Date : <span id="shDate"></span></p></div>
+      </div>
+      <div class="modelbar"><span id="shModel"></span><span id="shRpm"></span></div>
+      <div class="sub2" id="shSub"></div>
+      <div id="chPower"></div>
+      <div id="chPress"></div>
+      <div class="foot"><span id="shNote"></span><span></span></div>
+    </article>
+  </section>
+
+  <div class="fdcol noprint">
+  <aside class="panel folder noprint" id="folder" aria-label="Thư mục PDF">
+    <div class="fd-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      <input id="fdName" type="text" aria-label="Tên thư mục" spellcheck="false">
+      <span id="fdCount" class="fd-count"></span>
+    </div>
+    <ul id="fdList" class="fd-list"></ul>
+    <p id="fdMsg" class="fd-msg" role="status" hidden></p>
+    <button type="button" class="link" id="fdLogo" hidden>Chọn logo</button>
+    <div class="fd-foot">
+      <button type="button" class="btn" id="fdZip" disabled>Export folder tổng (.zip)</button>
+      <button type="button" class="btn alt" id="fdMerge" disabled>Gộp 1 PDF</button>
+      <button type="button" class="fd-clear" id="fdClear" disabled>Xoá tất cả</button>
+    </div>
+  </aside>
+    <div class="fd-boy" aria-hidden="true"><div id="fdBoy"></div>
+      <div class="fd-bin" id="fdBin"><svg viewBox="0 0 60 74" width="100%"><defs><linearGradient id="binG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9fb0bd"/><stop offset=".5" stop-color="#cfdae2"/><stop offset="1" stop-color="#8498a8"/></linearGradient></defs>
+        <path d="M9 22 H51 L47 68 Q46.6 71 43.6 71 H16.4 Q13.4 71 13 68Z" fill="url(#binG)" stroke="#6f8494" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M21 29 V63 M30 29 V63 M39 29 V63" stroke="#6f8494" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
+        <g class="lid"><rect x="3" y="14" width="54" height="8" rx="4" fill="#8498a8" stroke="#6f8494" stroke-width="1.5"/><rect x="23" y="8" width="14" height="7" rx="3" fill="#8498a8" stroke="#6f8494" stroke-width="1.5"/></g></svg></div>
+      <p id="fdSay" class="fd-say"></p></div>
+  </div>
+</main>
+
+<script>
+// MODEL-START
+const PI = Math.PI;
+const KV = 0.12;            // áp suất động cửa xả = 12% Pt tham chiếu tại x = 1
+const XMAX = 1.68;          // lưu lượng cực đại (x = Q / Q tham chiếu)
+const X_TAB = [0,.2,.4,.5,.6,.8,1,1.1,1.2,1.3,1.4,1.5,1.6,1.68];
+const P_TAB = [1.12,1.13,1.11,1.08,1.07,1.05,1,.955,.88,.77,.62,.43,.20,0];       // Pt / Pt tham chiếu
+const W_TAB = [.42,.52,.65,.72,.79,.92,1,1.04,1.06,1.07,1.05,1.0,.93,.88];       // công suất / công suất tham chiếu
+
+function pchip(xs, ys){
+  const n = xs.length, h = [], d = [], m = new Array(n);
+  for (let i = 0; i < n - 1; i++){ h[i] = xs[i+1] - xs[i]; d[i] = (ys[i+1] - ys[i]) / h[i]; }
+  m[0] = d[0]; m[n-1] = d[n-2];
+  for (let i = 1; i < n - 1; i++){
+    if (d[i-1] * d[i] <= 0) m[i] = 0;
+    else { const w1 = 2*h[i] + h[i-1], w2 = h[i] + 2*h[i-1]; m[i] = (w1 + w2) / (w1/d[i-1] + w2/d[i]); }
+  }
+  return x => {
+    if (x <= xs[0]) return ys[0];
+    if (x >= xs[n-1]) return ys[n-1];
+    let i = 0; while (x > xs[i+1]) i++;
+    const t = (x - xs[i]) / h[i], t2 = t*t, t3 = t2*t;
+    return (2*t3 - 3*t2 + 1)*ys[i] + (t3 - 2*t2 + t)*h[i]*m[i] + (-2*t3 + 3*t2)*ys[i+1] + (t3 - t2)*h[i]*m[i+1];
+  };
+}
+const SHAPE_P = pchip(X_TAB, P_TAB);
+const SHAPE_W = pchip(X_TAB, W_TAB);
+let W_PK_X = 0, W_PK_V = 0;      // vị trí và giá trị đỉnh của đường công suất chuẩn
+for (let x = 0; x <= XMAX; x += 0.001){ const w = SHAPE_W(x); if (w > W_PK_V){ W_PK_V = w; W_PK_X = x; } }
+let ETA_RAW_MAX = 0, X_E = 1;
+for (let x = 0.3; x <= 1.6; x += 0.001){ const e = x * SHAPE_P(x) / SHAPE_W(x); if (e > ETA_RAW_MAX){ ETA_RAW_MAX = e; X_E = x; } }
+
+// Các dòng quạt (hệ số áp suất ψ tại x = 1, dải hệ số lưu lượng φ theo bề rộng cánh)
+const SERIES = [
+  { code:'H', name:'áp suất cao',                 psi:.92, phiMin:.10, phiMax:.28, dEta:0 },
+  { code:'M', name:'áp suất trung bình',          psi:.68, phiMin:.14, phiMax:.38, dEta:-.02 },
+  { code:'L', name:'áp suất thấp, lưu lượng lớn', psi:.48, phiMin:.18, phiMax:.55, dEta:-.05 }
+];
+const POLES = { 2:2900, 4:1460, 6:970, 8:730 };
+const MOTORS = [0.18,0.25,0.37,0.55,0.75,1.1,1.5,2.2,3,4,5.5,7.5,11,15,18.5,22,30,37,45,55,75,90,110,132,160,200,250,315,355,400,450,500,560,630,710,800,900,1000];
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function bisect(f, a, b, it = 70){
+  let fa = f(a), fb = f(b);
+  if (fa === 0) return a; if (fb === 0) return b;
+  if (fa * fb > 0) return null;
+  for (let i = 0; i < it; i++){ const m = 0.5*(a+b), fm = f(m); if (fa * fm <= 0){ b = m; fb = fm; } else { a = m; fa = fm; } }
+  return 0.5*(a+b);
+}
+function airDensity(T, alt){
+  const p = 101325 * Math.pow(1 - 2.25577e-5 * alt, 5.25588);
+  return p / (287.05 * (273.15 + T));
+}
+function etaPeak(Dm, S, dw, phi){
+  let e = .66 + .16 * Math.log(Dm*1000/250) / Math.log(5);
+  e = clamp(e, .62, .84) + S.dEta + (dw === 2 ? .01 : 0);
+  const mid = Math.sqrt(S.phiMin * S.phiMax);
+  e -= .12 * Math.pow(Math.log(phi/mid), 2);
+  return clamp(e, .40, .86);
+}
+function makeFan(o){
+  const u = PI * o.D * o.n / 60, Aeq = PI/4 * o.D * o.D, q = .5 * o.rho * u * u;
+  const Qref = o.dw * o.phi * Aeq * u;               // m3/s tại x = 1
+  const Ptref = o.S.psi * q;
+  const Pref = Qref * Ptref * ETA_RAW_MAX / o.etaPk; // W
+  const Aout = o.dw * o.phi * o.D * o.D * (PI/4) / Math.sqrt(KV * o.S.psi);
+  const f = Object.assign({}, o, { u, Qref, Ptref, Pref, Aout, Qmax: XMAX * Qref });
+  f.at = Q => {
+    const x = Q / Qref, p = SHAPE_P(x), Pt = Ptref * p, Pv = Ptref * KV * x * x, Ps = Pt - Pv, P = Pref * SHAPE_W(x);
+    return { Q, x, Pt, Pv, Ps, P, eta_t: Q > 0 ? Q*Pt/P : 0, eta_s: Q > 0 ? Q*Ps/P : 0 };
+  };
+  return f;
+}
+function opPoint(f, a){        // giao điểm đường đặc tính quạt với đường hệ thống đi qua điểm yêu cầu (P = k·Q²)
+  const k = a.P / (a.Q * a.Q);
+  const pf = Q => { const r = f.at(Q); return a.basis === 'static' ? r.Ps : r.Pt; };
+  const g = Q => pf(Q) - k*Q*Q;
+  const lo = 1e-6 * f.Qmax, hi = f.Qmax;
+  let r = bisect(g, lo, hi);
+  if (r === null) r = g(lo) < 0 ? lo : hi;
+  return f.at(r);
+}
+function candidate(S, dw, a){   // a: {Q (m3/s), P, basis, n, rho, Dman (mm|null)}
+  const Qs = a.Q / dw, rho = a.rho, n = a.n;
+  const psiB = x => S.psi * (SHAPE_P(x) - (a.basis === 'static' ? KV*x*x : 0));
+  let D, phi, x;
+  if (a.Dman){
+    D = a.Dman / 1000;
+    const u = PI*D*n/60, target = a.P / (.5*rho*u*u);
+    if (target >= psiB(.3)) x = .3;
+    else if (target <= psiB(1.6)) x = 1.6;
+    else x = bisect(v => psiB(v) - target, .3, 1.6);
+    phi = clamp(Qs / (x * PI/4 * D*D * u), S.phiMin, S.phiMax);
+  } else {
+    const xt = X_E, u0 = Math.sqrt(a.P / (.5*rho*psiB(xt)));
+    D = 60*u0/(PI*n);
+    phi = Qs / (xt * PI/4 * D*D * u0);
+    if (phi < S.phiMin || phi > S.phiMax){
+      phi = clamp(phi, S.phiMin, S.phiMax);
+      const uOf = v => Math.cbrt(4 * Qs * PI * n*n / (3600 * v * phi));
+      const g = v => psiB(v) * .5*rho * Math.pow(uOf(v), 2) - a.P;
+      x = g(.4) < 0 ? .4 : (g(1.6) > 0 ? 1.6 : bisect(g, .4, 1.6));
+    } else x = xt;
+    const u = Math.cbrt(4 * Qs * PI * n*n / (3600 * x * phi));
+    D = 60*u/(PI*n);
+  }
+  D = Math.round(D*1000)/1000;
+  const fan = makeFan({ D, phi, S, dw, n, rho, etaPk: etaPeak(D, S, dw, phi) });
+  const op = opPoint(fan, a);
+  const mism = Math.abs(op.Q - a.Q) / a.Q, xop = op.Q / fan.Qref;
+  let score = op.eta_t - 3*Math.max(0, mism - .02) - (dw === 2 ? .01 : 0);
+  if (xop < .6) score -= .3 * (.6 - xop);
+  if (xop > 1.4) score -= .3 * (xop - 1.4);
+  if (D < .18 || D > 3.2) score -= .5;
+  if (fan.u > 110) score -= .5;
+  const valid = mism <= .03 && xop >= .5 && xop <= 1.5 && D >= .18 && D <= 3.2 && fan.u <= 110;
+  return { fan, op, score, valid, S, dw, mism, xop };
+}
+function selectBest(a){
+  let best = null;
+  for (const S of SERIES) for (const dw of [1, 2]){
+    const c = candidate(S, dw, a);
+    if (!best || (c.valid && !best.valid) || (c.valid === best.valid && c.score > best.score)) best = c;
+  }
+  return best;
+}
+function motorFor(shaftW, peakW, etaDrive, manual){
+  const req = Math.max(1.15 * shaftW, peakW) / etaDrive / 1000;
+  const std = MOTORS.find(m => m >= req) || Math.ceil(req);
+  const need = shaftW / etaDrive / 1000;
+  return { req, std, chosen: manual || std, manual: !!manual, need };
+}
+const ETA_M = [[.37,.73],[.55,.77],[.75,.825],[1.1,.841],[1.5,.853],[2.2,.867],[3,.877],[4,.886],[5.5,.896],[7.5,.904],[11,.914],[15,.921],[18.5,.926],[22,.93],[30,.936],[37,.939],[45,.942],[55,.946],[75,.95],[90,.952],[110,.954],[132,.956],[160,.958],[200,.96]];
+const COS_M = [[.37,.68],[1.1,.78],[2.2,.82],[5.5,.84],[11,.85],[22,.86],[55,.87],[90,.88]];
+function interp(tab, x){
+  if (x <= tab[0][0]) return tab[0][1];
+  for (let i = 1; i < tab.length; i++) if (x <= tab[i][0]){ const [x0,y0] = tab[i-1], [x1,y1] = tab[i]; return y0 + (y1-y0)*(x-x0)/(x1-x0); }
+  return tab[tab.length-1][1];
+}
+function motorCurrent(kW, V){ return kW*1000 / (Math.sqrt(3) * V * interp(ETA_M, kW) * interp(COS_M, kW)); }
+// MODEL-END
+
+/* =================== Giao diện =================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = (v, d = 0) => Number.isFinite(v) ? v.toFixed(d) : '–';
+
+function niceAxis(maxVal, target, allow25){
+  const raw = maxVal / target, mag = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / mag;
+  const k = n <= 1 ? 1 : n <= 2 ? 2 : (allow25 && n <= 2.5) ? 2.5 : n <= 5 ? 5 : 10;
+  const step = k * mag;
+  return { step, max: Math.ceil(maxVal / step - 1e-9) * step };
+}
+const tick = v => String(+v.toFixed(3));
+// Chia trục: chọn bước đẹp (1, 2, 2.5, 5 × 10^k) cho số cột gần nhất với số cột mong muốn
+function niceFine(maxVal, target){
+  let best = null;
+  for (let e = Math.floor(Math.log10(maxVal / target)) - 2; e < Math.floor(Math.log10(maxVal)) + 2; e++){
+    for (const k of [1, 2, 2.5, 5]){
+      const step = k * Math.pow(10, e), n = Math.ceil(maxVal / step - 1e-9);
+      if (n < 4) continue;
+      const diff = Math.abs(n - target);
+      if (!best || diff < best.diff || (diff === best.diff && n < best.n)) best = { step, max: n * step, n, diff };
+    }
+  }
+  return best;
+}
+
+function chart(c){
+  const W = 640, L = 0, R = 0, T = 8, B = c.xTitle ? 46 : 24, H = c.h, iw = W - L - R, ih = H - T - B;
+  const sx = x => L + x / c.xmax * iw, sy = y => T + ih - y / c.ymax * ih;
+  const id = 'cl' + c.id, K = 'var(--s-ink)';
+  let o = `<svg class="chart" viewBox="-36 0 ${W+48} ${H}" style="width:107.5%;margin-left:-5.625%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(c.aria)}"><defs><clipPath id="${id}"><rect x="${L}" y="${T}" width="${iw}" height="${ih}"/></clipPath></defs>`;
+  const nx = Math.round(c.xmax / c.xstep), ny = Math.round(c.ymax / c.ystep);
+ for (let i = 0; i <= nx; i++){
+  const x = sx(i * c.xstep);
+  o += `<line x1="${x.toFixed(1)}" y1="${T}" x2="${x.toFixed(1)}" y2="${T+ih}" stroke="${K}" stroke-width=".5"/>`;
+  // Bỏ qua vẽ nhãn số 0 ở vạch đầu tiên của trục X
+  if (i > 0) {
+    o += `<text x="${x.toFixed(1)}" y="${T+ih+14}" text-anchor="middle">${tick(i * c.xstep / c.xdiv)}</text>`;
+  }
+}
+  for (let j = 0; j <= ny; j++){
+    const y = sy(j * c.ystep);
+    o += `<line x1="${L}" y1="${y.toFixed(1)}" x2="${L+iw}" y2="${y.toFixed(1)}" stroke="${K}" stroke-width=".5"/>`;
+    o += `<text x="${L-6}" y="${(y+3.5).toFixed(1)}" text-anchor="end">${tick(j * c.ystep)}</text>`;
+  }
+  for (const s of c.series){
+    const d = s.pts.map((p, i) => (i ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + sy(p[1]).toFixed(1)).join('');
+    o += `<path d="${d}" fill="none" stroke="${K}" stroke-width="1.1" stroke-linejoin="round" clip-path="url(#${id})"/>`;
+  }
+  if (c.hline && c.hline.y <= c.ymax){
+    const hy = sy(c.hline.y), hw = c.hline.text.length * 5.6 + 10;
+    o += `<line x1="${L}" y1="${hy.toFixed(1)}" x2="${L+iw}" y2="${hy.toFixed(1)}" stroke="${K}" stroke-width="1.1" stroke-dasharray="6 3"/>`;
+    o += `<rect x="${(L+iw-hw-4).toFixed(1)}" y="${(hy-15).toFixed(1)}" width="${hw.toFixed(1)}" height="13" fill="#fff"/>`;
+    o += `<text class="tt" x="${(L+iw-8).toFixed(1)}" y="${(hy-5).toFixed(1)}" text-anchor="end">${c.hline.text}</text>`;
+  }
+  o += `<rect x="${L}" y="${T}" width="${iw}" height="${ih}" fill="none" stroke="${K}" stroke-width="1"/>`;
+  for (const m of (c.markers || [])){
+    if (!(m.x <= c.xmax && m.y <= c.ymax)) continue;
+    const mx = sx(m.x), my = sy(m.y);
+    o += `<circle cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="6" fill="#fff" fill-opacity=".85" stroke="${K}" stroke-width="1.2"/>`;
+    o += `<path d="M${(mx-6).toFixed(1)} ${my.toFixed(1)}H${(mx+6).toFixed(1)}M${mx.toFixed(1)} ${(my-6).toFixed(1)}V${(my+6).toFixed(1)}" stroke="${K}" stroke-width="1.2"/>`;
+    if (m.label) o += `<text class="tt" x="${(mx+9).toFixed(1)}" y="${(my-8).toFixed(1)}">${m.label}</text>`;
+  }
+  const ly = T + ih * c.labelAt, tw = Math.max(c.title.length, c.unit.length) * 6 + 12;
+  o += `<rect x="${L+3}" y="${(ly-12).toFixed(1)}" width="${tw.toFixed(1)}" height="29" fill="#fff"/>`;
+  o += `<text class="tt" x="${L+8}" y="${ly.toFixed(1)}">${c.title}</text><text class="tt" x="${L+8}" y="${(ly+12).toFixed(1)}">${c.unit}</text>`;
+  if (c.xTitle) o += `<text x="${(L+iw/2).toFixed(1)}" y="${H-8}" text-anchor="middle">${c.xTitle}</text>`;
+  return o + '</svg>';
+}
+
+let last = null;
+function readInputs(){
+  const v = id => $(id).value.trim();
+  const opt = id => v(id) === '' ? null : +v(id);
+  return {
+    Qh: +v('inQ'), P: +v('inP'), basis: document.querySelector('input[name=basis]:checked').value,
+    T: +v('inT'), alt: +v('inAlt') || 0, rpm: +v('inRpm'), V: +v('inV'), etaDrive: +v('inDrive'),
+    motor: opt('inMotor'), Dman: opt('inD'),
+    Qh2: opt('inQ2'), P2: opt('inP2'), motor2: opt('inMotor2'), tag: v('inTag'),
+    modelCustom: v('inModel'),
+    speedCustom: v('inSpeedLabel')
+  };
+}
+function setNotes(list){
+  $('notes').innerHTML = list.length ? list.map(n => `<li class="${n.t}">${n.h}</li>`).join('') : '<li class="empty"></li>';
+}
+
+function render(){
+  last = null;
+  const i = readInputs(), notes = [];
+  if (!(i.Qh > 0) || !(i.P > 0) || !(i.rpm > 0) || !Number.isFinite(i.T) || i.T < -50 || i.T > 250){
+    setNotes([{ t:'warn', h:'Nhập lưu lượng, áp suất và tốc độ lớn hơn 0, nhiệt độ trong khoảng −50 đến 250 °C.' }]);
+    return;
+  }
+  const rho = airDensity(i.T, i.alt);
+  const a = { Q: i.Qh / 3600, P: i.P, basis: i.basis, n: i.rpm, rho, Dman: i.Dman };
+  const best = selectBest(a), f = best.fan, op = best.op;
+  const Qmaxh = f.Qmax * 3600;
+
+  // ---- đường cong. Điểm 1 = quạt đã chọn. Điểm 2 = CÙNG quạt đó ở tốc độ khác (định luật quạt: Q ~ n, P ~ n²)
+  const N = 150, eDrive = i.etaDrive;
+  i.dual = i.Qh2 > 0 && i.P2 > 0;
+  const pf = p => i.basis === 'static' ? Math.max(0, p.Ps) : p.Pt;
+  const mkCurve = (fan, aPt, manualKW) => {
+    const op = opPoint(fan, aPt), pts = [];
+    for (let k = 0; k <= N; k++) pts.push(fan.at(fan.Qmax * k / N));
+    const peakW = Math.max(...pts.map(p => p.P));
+    const mot = motorFor(op.P, peakW, eDrive, manualKW);      // công suất động cơ (nhập tay hoặc tự chọn)
+    // Công suất động cơ nhập tay là NGƯỠNG TRẦN của đường cong: đỉnh đường cong đặt đúng tại điểm làm việc (= kW nhập),
+    // hai bên đỉnh co giãn theo trục lưu lượng nên không bao giờ vượt quá kW nhập.
+    const kPow = mot.manual ? mot.chosen / (op.P / eDrive / 1000) : 1;
+    const xOpM = op.Q / fan.Qref, canMap = xOpM > 0.05 && xOpM < XMAX - 0.02;
+    const toMotor = p => {                                   // công suất động cơ tại từng lưu lượng, kW
+      if (!mot.manual) return p.P / eDrive / 1000;
+      if (!canMap) return Math.min(p.P / eDrive / 1000 * kPow, mot.chosen);
+      const x = p.Q / fan.Qref;
+      const xm = x <= xOpM ? x * W_PK_X / xOpM : W_PK_X + (x - xOpM) * (XMAX - W_PK_X) / (XMAX - xOpM);
+      return Math.min(mot.chosen * SHAPE_W(xm) / W_PK_V, mot.chosen);
+    };
+    return { fan, op, pts, peakW, mot, toMotor, kSys: aPt.P / (aPt.Q * aPt.Q) };
+  };
+  const C1 = mkCurve(f, a, i.motor);
+  let C2 = null, n2 = null, info2 = '';
+  if (i.dual){
+    const a2 = { Q: i.Qh2 / 3600, P: i.P2, basis: i.basis, n: i.rpm, rho, Dman: i.Dman };
+    const opA = opPoint(f, a2);                              // giao điểm ở tốc độ điểm 1
+    if (opA.Q > 0.01 * f.Qmax && opA.Q < 0.999 * f.Qmax){
+      n2 = i.rpm * a2.Q / opA.Q;                             // tốc độ để đường đặc tính đi qua điểm 2
+      const fan2 = makeFan({ D: f.D, phi: f.phi, S: f.S, dw: f.dw, n: n2, rho, etaPk: f.etaPk });
+      C2 = mkCurve(fan2, a2, i.motor2);
+      const x2 = opA.Q / f.Qref;
+      info2 = `Điểm 2: tốc độ quạt tự tính ≈ ${Math.round(n2)} rpm.` + (x2 < .55 ? ' Cảnh báo: điểm 2 nằm gần vùng stall của quạt.' : x2 > 1.45 ? ' Cảnh báo: điểm 2 nằm sát cuối đường đặc tính, hiệu suất thấp.' : '');
+    } else info2 = 'Điểm 2 nằm ngoài khả năng của quạt đã chọn, hãy kiểm tra lại thông số.';
+  } else if (i.Qh2 > 0 || i.P2 > 0) info2 = 'Nhập đủ cả lưu lượng 2 và áp suất 2 để vẽ điểm làm việc 2.';
+  $('duty2Info').textContent = info2 || 'Cùng một quạt, điểm 2 dùng tốc độ khác (tự tính theo định luật quạt) nên vẽ thêm 1 đường đặc tính.';
+  const cs = C2 ? [C1, C2] : [C1];
+  const mot = C1.mot;
+
+  const ayP = niceAxis(Math.max(...cs.map(c => c.mot.manual ? c.mot.chosen : c.peakW / eDrive / 1000)) * 1.08, 12, true);
+  const ayPr = niceAxis(Math.max(...cs.flatMap(c => c.pts.map(pf))) * 1.05, 12, false);
+  // Cắt đuôi đường cong: dừng khi áp suất còn ~3% thang đo, không vẽ bò dọc đáy khung (như ảnh mẫu)
+  const CUT_Y = 0.03;                      // mức áp suất (so với thang Y) để dừng đường cong
+  for (const c of cs){
+    let kEnd = c.pts.length - 1;
+    for (let k = 1; k < c.pts.length; k++){ if (pf(c.pts[k]) <= CUT_Y * ayPr.max){ kEnd = k; break; } }
+    c.draw = c.pts.slice(0, kEnd + 1);
+  }
+  const Qendh = Math.max(...cs.map(c => c.draw[c.draw.length - 1].Q * 3600));
+  const END_FILL = 0.93;                   // đường cong chiếm tối đa 93% chiều ngang, phần còn lại để trống bên phải
+  const ax = niceFine(Qendh / END_FILL, 14);   // số cột mong muốn của trục lưu lượng
+  const xdiv = ax.max >= 5000 ? 1000 : 1;
+  const xTitle = xdiv === 1000 ? 'Volume Flow M3/HR X 1000' : 'Volume Flow M3/HR';
+  const toH = p => p.Q * 3600;
+  const opPrOf = c => i.basis === 'static' ? c.op.Ps : c.op.Pt;
+  const opPr = opPrOf(C1);
+  const prName = i.basis === 'static' ? 'Fan Static Pressure' : 'Fan Total Pressure';
+  const lab = k => C2 ? String(k + 1) : '';
+
+  $('chPower').innerHTML = chart({ id:1, h:336, xmax:ax.max, xstep:ax.step, xdiv, ymax:ayP.max, ystep:ayP.step, labelAt:.22,
+    title:'Fan Power', unit:'kW', aria:'Đường công suất theo lưu lượng',
+    series: cs.map(c => ({ pts: c.draw.map(p => [toH(p), c.toMotor(p)]) })),
+    markers: cs.map((c, k) => ({ x: c.op.Q * 3600, y: c.toMotor(c.op), label: lab(k) })) });
+
+  // Đường hệ thống chỉ kéo qua điểm làm việc một đoạn ngắn, không chạm khung trên
+  const sysSeries = cs.map(c => {
+    const qEnd = Math.min(c.op.Q * 1.12, Math.sqrt(0.97 * ayPr.max / c.kSys), ax.max / 3600 * 0.97), pts = [];
+    for (let k = 0; k <= 80; k++){ const Q = qEnd * k / 80; pts.push([Q*3600, c.kSys*Q*Q]); }
+    return { pts };
+  });
+  $('chPress').innerHTML = chart({ id:2, h:440, xmax:ax.max, xstep:ax.step, xdiv, ymax:ayPr.max, ystep:ayPr.step, xTitle, labelAt:.38,
+    title:prName, unit:'Pa', aria:'Đường áp suất theo lưu lượng và đường hệ thống',
+    series: sysSeries.concat(cs.map(c => ({ pts: c.draw.map(p => [toH(p), pf(p)]) }))),
+    markers: cs.map((c, k) => ({ x: c.op.Q * 3600, y: opPrOf(c), label: lab(k) })) });
+
+  // ---- động cơ
+  const Irated = motorCurrent(mot.chosen, i.V);
+  const Irun = op.P / eDrive / (Math.sqrt(3) * i.V * interp(ETA_M, mot.chosen) * interp(COS_M, mot.chosen));
+
+  // ---- thông tin phiếu
+  const Dmm = Math.round(f.D * 1000);
+  const autoModel = `BI-${Dmm}-${best.S.code}${best.dw}`;
+  const model = i.modelCustom ? i.modelCustom : autoModel;
+  const proj = $('inProj').value, item =$('inItem').value, quote = $('inQuote').value, date =$('inDate').value;
+  $('shProj').textContent = proj; $('shItem').textContent = item; $('shQuote').textContent = quote; $('shDate').textContent = date;
+  $('shTag').textContent = i.tag; $('shTagBox').hidden = !i.tag;
+  $('shModel').textContent = model; $('shRpm').textContent = i.speedCustom;   // để trống = không in tốc độ
+  const basisTxt = i.basis === 'static' ? 'tĩnh' : 'toàn phần';
+  const duty = (q, p, kw) => `${Math.round(q)} M3/HR @ ${num(p, p < 100 ? 1 : 0)} PA @ Fan: ${kw} kW`;
+  const pTxt = p => num(p, p < 100 ? 1 : 0);
+  $('shSub').textContent = C2
+    ? `Duty : ${Math.round(i.Qh)}/${Math.round(i.Qh2)} M3/HR @ ${pTxt(i.P)}/${pTxt(i.P2)} PA @ Fan: ${C1.mot.chosen}/${C2.mot.chosen} kW`
+    : `Duty : ${duty(i.Qh, i.P, mot.chosen)}`;
+
+  // ---- khối kết quả trên màn hình
+  const kv = (t, v, u) => `<div><dt>${t}</dt><dd>${v}${u ? `<small>${u}</small>` : ''}</dd></div>`;
+  const motorNote = mot.manual ? (mot.chosen < mot.need ? ' · thiếu' : (mot.chosen < mot.req ? ' · thấp hơn khuyến nghị' : '')) : '';
+  $('result').innerHTML = `<div class="model"><b>${model}</b><span>Quạt ly tâm cánh nghiêng sau, dòng ${best.S.name}, ${best.dw === 2 ? '2 cửa hút' : '1 cửa hút'}</span></div>
+    <h2>Điểm làm việc${C2 ? ' 1' : ''}</h2>
+    <dl class="kv">
+      ${kv('Lưu lượng', Math.round(op.Q*3600), 'm³/h')}
+      ${kv('Áp suất tĩnh', num(op.Ps,0), 'Pa')}
+      ${kv('Áp suất toàn phần', num(op.Pt,0), 'Pa')}
+      ${kv('Công suất trục', num(op.P/1000,2), 'kW')}
+      ${kv('Hiệu suất toàn phần', num(op.eta_t*100,1), '%')}
+      ${kv('Hiệu suất tĩnh', num(op.eta_s*100,1), '%')}
+      ${kv('Đường kính cánh', Dmm, 'mm')}
+      ${kv('Bề rộng cánh b/D', num(f.phi/0.88,2), '')}
+      ${kv('Tốc độ đầu cánh', num(f.u,1), 'm/s')}
+      ${kv('Vận tốc cửa xả', num(op.Q/f.Aout,1), 'm/s')}
+      ${kv('Động cơ khuyến nghị', mot.chosen + motorNote, 'kW')}
+      ${kv('Dòng định mức ~', num(Irated,1), `A · ${i.V} V`)}
+      ${kv('Dòng tại điểm làm việc ~', num(Irun,1), 'A')}
+      ${kv('Khối lượng riêng', rho.toFixed(3), 'kg/m³')}
+    </dl>${C2 ? `
+    <h2 style="margin-top:14px">Điểm làm việc 2 · ${Math.round(n2)} rpm</h2>
+    <dl class="kv">
+      ${kv('Lưu lượng', Math.round(C2.op.Q*3600), 'm³/h')}
+      ${kv('Áp suất', num(opPrOf(C2),0), 'Pa')}
+      ${kv('Công suất trục', num(C2.op.P/1000,2), 'kW')}
+      ${kv('Hiệu suất toàn phần', num(C2.op.eta_t*100,1), '%')}
+      ${kv('Động cơ', C2.mot.chosen, 'kW')}
+    </dl>` : ''}`;
+
+  // ---- thông báo
+  if (best.mism > .02){
+    notes.push({ t:'warn', h:`Ở ${Math.round(i.rpm)} rpm với đường kính này, quạt chỉ cho ${Math.round(op.Q*3600)} m³/h và ${num(opPr,0)} Pa (yêu cầu ${Math.round(i.Qh)} m³/h, ${num(i.P,0)} Pa). Hãy đổi số cực hoặc tốc độ, hoặc bỏ trống ô đường kính để tự chọn.` });
+  }
+  const alt = [];
+  for (const [p, r] of Object.entries(POLES)){ if (r !== Math.round(i.rpm)){ const c = selectBest({ ...a, n:r }); alt.push({ p, r, c }); } }
+  alt.sort((x, y) => (y.c.valid - x.c.valid) || (y.c.score - x.c.score));
+  if (alt[0] && ((alt[0].c.valid && !best.valid) || (alt[0].c.valid && alt[0].c.score > best.score + .03))){
+    const c = alt[0].c;
+    notes.push({ t:'info', h:`Gợi ý: ${alt[0].p}P (${alt[0].r} rpm) cho hiệu suất toàn phần ${num(c.op.eta_t*100,0)}% so với ${num(op.eta_t*100,0)}% hiện tại. <button type="button" class="link" data-rpm="${alt[0].r}" data-poles="${alt[0].p}">Dùng ${alt[0].p}P</button>` });
+  }
+  if (best.xop < .55) notes.push({ t:'warn', h:'Điểm làm việc nằm gần vùng bất ổn (stall) của quạt. Hãy chọn quạt nhỏ hơn hoặc tăng lưu lượng.' });
+  if (best.xop > 1.45) notes.push({ t:'warn', h:'Điểm làm việc nằm sát cuối đường đặc tính (gần lưu lượng cực đại), hiệu suất thấp. Hãy chọn quạt lớn hơn hoặc giảm tốc độ.' });
+  if (f.u > 100) notes.push({ t:'warn', h:`Tốc độ đầu cánh ${num(f.u,0)} m/s khá cao, cần kiểm tra độ bền cánh và độ ồn với nhà sản xuất.` });
+  if (mot.manual && mot.chosen < mot.need) notes.push({ t:'warn', h:`Động cơ ${mot.chosen} kW nhỏ hơn công suất cần ${num(mot.need,2)} kW tại điểm làm việc.` });
+  else if (mot.manual && mot.chosen < mot.req) notes.push({ t:'warn', h:`Động cơ ${mot.chosen} kW thấp hơn mức khuyến nghị ${mot.std} kW, có thể quá tải khi hệ thống ống thông thoáng hơn dự tính.` });
+  if (best.dw === 2) notes.push({ t:'info', h:'Lưu lượng lớn so với áp suất, chương trình chọn quạt 2 cửa hút (DWDI).' });
+  setNotes(notes);
+  last = { best, mot, mot2: C2 && C2.mot, dual: !!C2, i, model };
+}
+
+/* ---------- sự kiện ---------- */
+const d = new Date();
+$('inDate').value = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+let timer;
+$('f').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(render, 90); });
+$('inPoles').addEventListener('change', () => {$('inRpm').value = POLES[$('inPoles').value]; render(); });$('notes').addEventListener('click', e => {
+  const b = e.target.closest('button[data-rpm]'); if (!b) return;
+  $('inPoles').value = b.dataset.poles; $('inRpm').value = b.dataset.rpm; render();
+});
+$('btnPdf').addEventListener('click', () => {
+  const old = document.title;
+  if (last) document.title = `DDT_${last.model}_${d.getDate(motorCurrent)}_${d.getMonth()+1}_${d.getFullYear()}`;
+  window.print();
+  // _${Math.round(last.i.Qh)}m3h_${Math.round(last.i.P)}Pa
+  setTimeout(() => { document.title = old; }, 800);
+});
+/* ---------- logo ---------- */
+const LOGO_KEY = 'fanCurveLogo';
+function showLogo(src){
+  const has = !!src;
+  $('logoImg').hidden = !has; $('logoDel').hidden = !has; $('logoBtn').hidden = has;
+  if (has) $('logoImg').src = src;
+}
+try { const saved = localStorage.getItem(LOGO_KEY); if (saved) showLogo(saved); } catch (e) {}
+$('logoBtn').addEventListener('click', () => $('logoFile').click());$('logoDel').addEventListener('click', () => { showLogo(null); try { localStorage.removeItem(LOGO_KEY); } catch (e) {} $('logoFile').value = ''; });$('logoFile').addEventListener('change', () => {
+  const file = $('logoFile').files[0]; if (!file) return;
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    const k = Math.min(1, 600 / img.width), c = document.createElement('canvas');
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+    const data = c.toDataURL('image/jpeg', .92);
+    URL.revokeObjectURL(url); showLogo(data);
+    try { localStorage.setItem(LOGO_KEY, data); } catch (e) {}
+  };
+  img.src = url;
+});
+/* ================= LƯU PDF + THƯ MỤC (vector PDF, không cần thư viện ngoài) ================= */
+(function(){
+  const WR = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584], WB = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+  const K = 72 / 25.4;                                   // mm -> pt
+  const PW = 595.28, PH = 841.89;
+  const enc = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+  const clean = s => String(s == null ? '' : s).normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .replace(/[^\x20-\x7e]/g, '?');
+  const esc = s => s.replace(/[\\()]/g, m => '\\' + m);
+  const tw = (s, size, bold) => { const t = bold ? WB : WR; let w = 0; for (const ch of s){ const c = ch.charCodeAt(0) - 32; w += (t[c] == null ? 556 : t[c]); } return w * size / 1000; };
+  const f2 = n => (+n).toFixed(2);
+
+  /* ---- lệnh vẽ trong hệ pt, gốc dưới-trái ---- */
+  function text(s, x, y, size, bold, anchor){
+    s = clean(s); const w = tw(s, size, bold);
+    if (anchor === 'middle') x -= w / 2; else if (anchor === 'end') x -= w;
+    return `BT /${bold ? 'F2' : 'F1'} ${f2(size)} Tf ${f2(x)} ${f2(y)} Td (${esc(s)}) Tj ET\n`;
+  }
+  function circle(cx, cy, r){
+    const c = 0.5523 * r;
+    return `${f2(cx + r)} ${f2(cy)} m ${f2(cx + r)} ${f2(cy + c)} ${f2(cx + c)} ${f2(cy + r)} ${f2(cx)} ${f2(cy + r)} c ` +
+      `${f2(cx - c)} ${f2(cy + r)} ${f2(cx - r)} ${f2(cy + c)} ${f2(cx - r)} ${f2(cy)} c ` +
+      `${f2(cx - r)} ${f2(cy - c)} ${f2(cx - c)} ${f2(cy - r)} ${f2(cx)} ${f2(cy - r)} c ` +
+      `${f2(cx + c)} ${f2(cy - r)} ${f2(cx + r)} ${f2(cy - c)} ${f2(cx + r)} ${f2(cy)} c h `;
+  }
+
+  /* ---- SVG biểu đồ -> lệnh PDF ---- */
+  function svgToPdf(svg, leftMm, topMm, widthMm){
+    const vb = svg.getAttribute('viewBox').trim().split(/\s+/).map(Number);
+    const s = widthMm / vb[2];
+    const X = x => (((x - vb[0]) * s) + leftMm) * K, Y = y => (297 - (y * s + topMm)) * K;
+    const num = (el, a, d) => { const v = parseFloat(el.getAttribute(a)); return Number.isFinite(v) ? v : d; };
+    const sw = el => f2(num(el, 'stroke-width', 1) * s * K);
+    let o = '';
+    const cr = svg.querySelector('clipPath rect');
+    const clipOn = () => { if (!cr) return ''; const x = num(cr, 'x', 0), y = num(cr, 'y', 0), w = num(cr, 'width', 0), h = num(cr, 'height', 0);
+      return `q ${f2(X(x))} ${f2(Y(y + h))} ${f2(w * s * K)} ${f2(h * s * K)} re W n\n`; };
+    for (const el of svg.children){
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'line'){
+        o += `${sw(el)} w ${f2(X(num(el,'x1',0)))} ${f2(Y(num(el,'y1',0)))} m ${f2(X(num(el,'x2',0)))} ${f2(Y(num(el,'y2',0)))} l S\n`;
+      } else if (tag === 'path'){
+        const d = el.getAttribute('d') || '', clipped = el.hasAttribute('clip-path');
+        let cx = 0, cy = 0, p = '';
+        for (const m of d.matchAll(/([MLHV])([^MLHV]*)/g)){
+          const a = m[2].trim().split(/[\s,]+/).filter(Boolean).map(Number);
+          if (m[1] === 'M'){ cx = a[0]; cy = a[1]; p += `${f2(X(cx))} ${f2(Y(cy))} m `; for (let i = 2; i + 1 < a.length; i += 2){ cx = a[i]; cy = a[i+1]; p += `${f2(X(cx))} ${f2(Y(cy))} l `; } }
+          else if (m[1] === 'L'){ for (let i = 0; i + 1 < a.length; i += 2){ cx = a[i]; cy = a[i+1]; p += `${f2(X(cx))} ${f2(Y(cy))} l `; } }
+          else if (m[1] === 'H'){ cx = a[0]; p += `${f2(X(cx))} ${f2(Y(cy))} l `; }
+          else if (m[1] === 'V'){ cy = a[0]; p += `${f2(X(cx))} ${f2(Y(cy))} l `; }
+        }
+        o += (clipped ? clipOn() : '') + `${sw(el)} w 1 j ${p}S\n` + (clipped ? 'Q\n' : '');
+      } else if (tag === 'rect'){
+        const x = num(el,'x',0), y = num(el,'y',0), w = num(el,'width',0), h = num(el,'height',0);
+        const r = `${f2(X(x))} ${f2(Y(y + h))} ${f2(w * s * K)} ${f2(h * s * K)} re `;
+        const fill = (el.getAttribute('fill') || '').toLowerCase();
+        if (fill === '#fff' || fill === '#ffffff' || fill === 'white') o += `q 1 g ${r}f Q\n`;
+        else o += `${sw(el)} w ${r}S\n`;
+      } else if (tag === 'circle'){
+        o += `q /GS1 gs 1 g ${sw(el)} w ${circle(X(num(el,'cx',0)), Y(num(el,'cy',0)), num(el,'r',5) * s * K)}B Q\n`;
+      } else if (tag === 'text'){
+        const big = el.classList.contains('tt'), size = (big ? 11 : 10) * s * K;
+        o += text(el.textContent, X(num(el,'x',0)), Y(num(el,'y',0)), size, false, el.getAttribute('text-anchor') || 'start');
+      }
+    }
+    return o;
+  }
+
+  /* ---- một trang A4 từ ảnh chụp (snap) ---- */
+  function pageContent(sn, logo){
+    const mm = v => v * K, X = v => f2(mm(v)), Y = v => f2((297 - v) * K);
+    let o = '0 G 0 g\n';
+    if (logo){
+      let w = Math.min(60, 19 * logo.w / logo.h), h = w * logo.h / logo.w;
+      o += `q ${f2(mm(w))} 0 0 ${f2(mm(h))} ${X(198.08 - w)} ${Y(10 + h)} cm /Im1 Do Q\n`;
+    }
+    const base = (v) => (297 - v) * K;
+    if (sn.tag){
+      const wb = tw(clean(sn.tag), 11, true) / K + 5;
+      o += `0.74 w ${X(12)} ${Y(14 + 8)} ${f2(mm(wb))} ${f2(mm(8))} re S\n`;
+      o += text(sn.tag, mm(14.5), base(19.6), 11, true, 'start');
+    }
+    o += text('Project : ' + sn.proj, mm(12), base(34.24), 9, false, 'start');
+    o += text('Item Ref : ' + sn.item, mm(12), base(38.95), 9, false, 'start');
+    o += text('Quote Ref : ' + sn.quote, mm(198.08), base(34.24), 9, false, 'end');
+    o += text('Date : ' + sn.date, mm(198.08), base(38.95), 9, false, 'end');
+    o += `0.74 w ${X(12)} ${Y(43.44 + 7.94)} ${f2(mm(186.08))} ${f2(mm(7.94))} re S\n`;
+    o += text(sn.model, mm(14.64), base(48.85), 11, true, 'start');
+    o += text(sn.rpm, mm(195.44), base(48.85), 11, true, 'end');
+    o += text(sn.sub, mm(12), base(56.2), 8.6, false, 'start');
+    const host = document.createElement('template');
+    const geo = [];
+    for (const key of ['svg1', 'svg2']){
+      host.innerHTML = sn[key]; geo.push(host.content.firstElementChild);
+    }
+    const left = 1.53, w = 200.04;
+    const s = w / +geo[0].getAttribute('viewBox').trim().split(/\s+/)[2];
+    const top1 = 59.49, top2 = top1 + +geo[0].getAttribute('viewBox').trim().split(/\s+/)[3] * s;
+    o += svgToPdf(geo[0], left, top1, w) + svgToPdf(geo[1], left, top2, w);
+    return o;
+  }
+
+  /* ---- ghép file PDF ---- */
+  function buildPdf(snaps, logo){
+    const parts = [], offs = []; let len = 0;
+    const push = b => { if (typeof b === 'string') b = enc(b); parts.push(b); len += b.length; };
+    const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n`); if (Array.isArray(body)) body.forEach(push); else push(body); push('\nendobj\n'); };
+    const n = snaps.length, imgN = 5, first = logo ? 6 : 5;
+    push('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n');
+    const kids = snaps.map((_, i) => `${first + 2 * i} 0 R`).join(' ');
+    obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2, `<< /Type /Pages /Kids [${kids}] /Count ${n} >>`);
+    obj(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+    obj(4, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+    if (logo) obj(imgN, [`<< /Type /XObject /Subtype /Image /Width ${logo.w} /Height ${logo.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${logo.bytes.length} >>\nstream\n`, logo.bytes, '\nendstream']);
+    const res = `<< /Font << /F1 3 0 R /F2 4 0 R >> /ExtGState << /GS1 << /ca 0.85 /CA 1 >> >>${logo ? ' /XObject << /Im1 5 0 R >>' : ''} >>`;
+    snaps.forEach((sn, i) => {
+      const pn = first + 2 * i, cn = pn + 1, c = enc(pageContent(sn, logo));
+      obj(pn, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources ${res} /Contents ${cn} 0 R >>`);
+      obj(cn, [`<< /Length ${c.length} >>\nstream\n`, c, '\nendstream']);
+    });
+    const total = first + 2 * n, xref = len;
+    let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+    for (let i = 1; i < total; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+    push(x + `trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return new Blob(parts, { type: 'application/pdf' });
+  }
+
+  /* ---- ZIP (không nén) ---- */
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  function zip(files){
+    const u8 = s => new TextEncoder().encode(s), out = [], cen = []; let off = 0;
+    const dt = new Date(), time = (dt.getHours() << 11) | (dt.getMinutes() << 5) | (dt.getSeconds() >> 1),
+      date = ((dt.getFullYear() - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate();
+    const mk = (n, f) => { const b = new Uint8Array(n); const v = new DataView(b.buffer); f(v); return b; };
+    for (const f of files){
+      const nm = u8(f.name), crc = crc32(f.bytes), sz = f.bytes.length;
+      const lh = mk(30, v => { v.setUint32(0, 0x04034b50, true); v.setUint16(4, 20, true); v.setUint16(6, 0x0800, true); v.setUint16(8, 0, true);
+        v.setUint16(10, time, true); v.setUint16(12, date, true); v.setUint32(14, crc, true); v.setUint32(18, sz, true); v.setUint32(22, sz, true); v.setUint16(26, nm.length, true); });
+      out.push(lh, nm, f.bytes);
+      cen.push(mk(46, v => { v.setUint32(0, 0x02014b50, true); v.setUint16(4, 20, true); v.setUint16(6, 20, true); v.setUint16(8, 0x0800, true); v.setUint16(10, 0, true);
+        v.setUint16(12, time, true); v.setUint16(14, date, true); v.setUint32(16, crc, true); v.setUint32(20, sz, true); v.setUint32(24, sz, true); v.setUint16(28, nm.length, true); v.setUint32(42, off, true); }), nm);
+      off += 30 + nm.length + sz;
+    }
+    let cl = 0; cen.forEach(b => cl += b.length);
+    const end = mk(22, v => { v.setUint32(0, 0x06054b50, true); v.setUint16(8, files.length, true); v.setUint16(10, files.length, true); v.setUint32(12, cl, true); v.setUint32(16, off, true); });
+    return new Blob([...out, ...cen, end], { type: 'application/zip' });
+  }
+
+  /* ---- logo -> JPEG bytes ---- */
+  const FALLBACK_LOGO = { w: 500, h: 336, b: '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BHDEoRFHYCqGhaWLKOSeQf6ROcsfRewrVrOMbamVOHLeT3YUUUVobBRRRQAVwfjbTM72xwa7ysfxJZC5syccgVE1dGVWPNGx8w+MtNxv4r1/9mm3+zfDmQYxu1Cdv/QR/SuL8Z6af3nFekfAi3+zeAIlxjddTt/4/XDRjaqeJhafLir+T/Q9Dooor0T6AKKKKAKt7YR3sZVwM+tcB4l8J43EJkfSvSaint0uUKuMiolBSMalNTWp80eIvC+CxCkEdCOor3D4aeJ28TeGYWuGzf237i49SwHDf8CHP1zVHxH4UDKzKuQa5jwvK/hHxIsrZW0uMRTjsBn5W/A/oTXLFOlPyPOpweGq36Pc9hopOtLXaeuFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFRyxCXaG5UHJHrUlFABRRRQAUUUUAFFFFABUdxEJoXQ9xUlFAHkPjXTMGT5a634T2/wBm8FWq4xmSU/8Aj5pPGmnB1ZwOtaXgOD7P4XtE6cuf/HjXPGNqhwU4ctdvy/yOgoooroO8KKKKACiiigBrosilWGQfWuW8Q+F0nRnRcg11dIQCMHkVLSluRKKkrMxvC1682ni3nJM9v8hJ6svY/wBPwrarPexFrdrcwj2dR3FXwcjNC0VgjdKzFoooqiwooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAztctRc2bcZIpPDkPkaLbJ0wD/M1oSIJEZT0IxUdnF5NtGnoKm2tyLe9cmoooqiwooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/2Q==' };   // logo System Fan dự phòng khi trình duyệt chặn đọc ảnh (file://)
+  let logoCache = { src: null, val: null };
+  async function getLogo(){
+    const img = $('logoImg');
+    if (img.hidden || !img.getAttribute('src')) return { logo: null };
+    try { if (!img.complete) await img.decode(); } catch (e) {}
+    if (!img.naturalWidth) return { logo: null };
+    const src = img.src;
+    if (logoCache.src === src) return { logo: logoCache.val };
+    let val = null, warn = '';
+    try {
+      const m = /^data:image\/jpe?g;base64,(.*)$/.exec(src);
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      if (m && nw){ const bin = atob(m[1]), b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); val = { bytes: b, w: nw, h: nh }; }
+      else {
+        if (!img.complete) await img.decode();
+        const k = Math.min(1, 800 / img.naturalWidth), c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        const url = c.toDataURL('image/jpeg', .92), bin = atob(url.split(',')[1]), b = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+        val = { bytes: b, w: c.width, h: c.height };
+      }
+    } catch (e) {
+      try { const bin = atob(FALLBACK_LOGO.b), b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); val = { bytes: b, w: FALLBACK_LOGO.w, h: FALLBACK_LOGO.h }; } catch (e2) { val = null; }
+      if (!val) warn = 'Trình duyệt chặn đọc logo khi mở file trực tiếp (file://), nên PDF lưu ra chưa có logo. Bấm "Chọn logo" để tải logo lên, hoặc chạy trang qua máy chủ web (http).';
+    }
+    logoCache = { src, val };
+    return { logo: val, warn };
+  }
+
+  /* ---- cậu bé đỡ thư mục: càng nhiều file càng khom xuống ---- */
+  const BOY_MAX = 10;                                    // số file để cậu bé khom hết cỡ
+  const boyHost = $('fdBoy'), boySay = $('fdSay');
+  let boyT = -1, boyGoal = 0, boyRaf = 0;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  function boySvg(e){
+    const hipY = 112 + 38 * e, shY = 84 + 38 * e, hy = 50 + 38 * e, gy = 160, f = n => n.toFixed(1);
+    const fx = 16 + 24 * e, kx = 14 + 34 * e, ky = (hipY + gy) / 2 + 2;
+    const ex = 6 + 20 * e, ey = (shY + 12) / 2;
+    const leg = s => `<path d="M${f(100+s*13)} ${f(hipY)} L${f(100+s*kx)} ${f(ky)} L${f(100+s*fx)} ${gy-5}" fill="none" stroke="url(#bPants)" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<ellipse cx="${f(100+s*(fx+(s>0?3:-3)))}" cy="${gy}" rx="13" ry="7" fill="url(#bShoe)"/>`;
+    const arm = s => `<path d="M${f(100+s*21)} ${f(shY+3)} L${f(100+s*(21+ex))} ${f(ey)}" stroke="url(#bShirt)" stroke-width="14" stroke-linecap="round" fill="none"/>` +
+      `<path d="M${f(100+s*(21+ex))} ${f(ey)} L${f(100+s*32)} 13" stroke="url(#bSkin)" stroke-width="11" stroke-linecap="round" fill="none"/>` +
+      `<circle cx="${f(100+s*32)}" cy="12" r="8" fill="url(#bSkin)"/>`;
+    const brow = s => `<path d="M${f(100+s*15)} ${f(hy-11-e*1)} L${f(100+s*5)} ${f(hy-11+e*4)}" stroke="#4a3426" stroke-width="2.6" stroke-linecap="round"/>`;
+    const eyeH = 4.6 - 2.6 * e;
+    const eye = s => `<ellipse cx="${f(100+s*11)}" cy="${f(hy-1)}" rx="3.6" ry="${f(eyeH)}" fill="#2b2118"/><circle cx="${f(100+s*12)}" cy="${f(hy-2.6)}" r="1.2" fill="#fff"/>`;
+    const sweatO = Math.max(0, Math.min(1, (e - .4) * 2.5));
+    return `<svg viewBox="0 0 200 172" width="100%" aria-hidden="true"><defs>
+      <radialGradient id="bSkin" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffe6d2"/><stop offset="1" stop-color="#f1b48f"/></radialGradient>
+      <linearGradient id="bShirt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4fc0e0"/><stop offset="1" stop-color="#1d7a9c"/></linearGradient>
+      <linearGradient id="bPants" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b6b87"/><stop offset="1" stop-color="#2c3850"/></linearGradient>
+      <radialGradient id="bShoe" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#ff9a73"/><stop offset="1" stop-color="#d4502b"/></radialGradient>
+      <radialGradient id="bHair" cx=".35" cy=".25" r=".9"><stop offset="0" stop-color="#7a5a45"/><stop offset="1" stop-color="#3b281c"/></radialGradient>
+      </defs>
+      <ellipse cx="100" cy="166" rx="${f(40+16*e)}" ry="6" fill="#000" opacity=".16"/>
+      <g class="${e > .75 ? 'tremble' : ''}">
+      ${leg(-1)}${leg(1)}
+      <rect x="78" y="${f(shY-7)}" width="44" height="${f(hipY-shY+20)}" rx="17" fill="url(#bShirt)"/>
+      <rect x="84" y="${f(shY-3)}" width="9" height="${f(hipY-shY+8)}" rx="4.5" fill="#fff" opacity=".22"/>
+      ${arm(-1)}${arm(1)}
+      <circle cx="100" cy="${f(hy)}" r="29" fill="url(#bSkin)"/>
+      <path d="M71 ${f(hy-4)} C 70 ${f(hy-34)}, 130 ${f(hy-34)}, 129 ${f(hy-4)} C 122 ${f(hy-20)}, 108 ${f(hy-23)}, 100 ${f(hy-22)} C 90 ${f(hy-23)}, 77 ${f(hy-20)}, 71 ${f(hy-4)}Z" fill="url(#bHair)"/>
+      <path d="M96 ${f(hy-30)} Q 100 ${f(hy-42)} 107 ${f(hy-33)}" fill="none" stroke="#3b281c" stroke-width="4" stroke-linecap="round"/>
+      <ellipse cx="86" cy="${f(hy-14)}" rx="7" ry="3.4" fill="#fff" opacity=".28" transform="rotate(-20 86 ${f(hy-14)})"/>
+      ${brow(-1)}${brow(1)}${eye(-1)}${eye(1)}
+      <circle cx="82" cy="${f(hy+9)}" r="5" fill="#ff8f8f" opacity="${f(.35+.3*e)}"/><circle cx="118" cy="${f(hy+9)}" r="5" fill="#ff8f8f" opacity="${f(.35+.3*e)}"/>
+      <path d="M${f(94-e)} ${f(hy+13)} Q 100 ${f(hy+13+6-11*e)} ${f(106+e)} ${f(hy+13)}" fill="none" stroke="#7a3b2e" stroke-width="2.6" stroke-linecap="round"/>
+      <path class="sweat" d="M133 ${f(hy-14)} q 6 9 0 13 q -6 -4 0 -13z" fill="#9fdcf5" stroke="#5db7da" stroke-width="1" opacity="${f(sweatO)}"/>
+      </g></svg>`;
+  }
+  function boyDraw(e){ boyT = e; boyHost.innerHTML = boySvg(e); }
+  function boyStep(){
+    boyRaf = 0;
+    const d = boyGoal - boyT;
+    if (Math.abs(d) < .004){ boyDraw(boyGoal); return; }
+    boyDraw(boyT + d * .12); boyRaf = requestAnimationFrame(boyStep);
+  }
+  function setBoy(n){
+    boyGoal = Math.min(1, n / BOY_MAX);
+    boySay.textContent = n === 0 ? 'Sẵn sàng nhận file!' : boyGoal < .3 ? 'Nhẹ tênh~' : boyGoal < .65 ? 'Hơi nặng nha...' : boyGoal < 1 ? 'Nặng quá, cố lên!' : 'Hết sức rồi!! Export đi nhé';
+    if (boyT < 0 || matchMedia('(prefers-reduced-motion:reduce)').matches){ boyDraw(boyGoal); return; }
+    if (!boyRaf) boyRaf = requestAnimationFrame(boyStep);
+  }
+
+  /* ---- thư mục ---- */
+  const KEY = 'fanFolderV1';
+  const FIELDS = ['inTag','inQ2','inP2','inMotor2','inQ','inP','inT','inAlt','inPoles','inRpm','inV','inDrive','inMotor','inD','inModel','inSpeedLabel','inProj','inItem','inQuote','inDate'];
+  let st = { folder: '', files: [] };
+  try { const r = JSON.parse(localStorage.getItem(KEY) || 'null'); if (r && Array.isArray(r.files)) st = r; } catch (e) {}
+  if (!st.folder) st.folder = 'DDT_' + new Date().toISOString().slice(0, 10);
+  let saveFail = false;
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); saveFail = false; } catch (e) { saveFail = true; } };
+  const safe = s => String(s).replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim().replace(/[. ]+$/, '') || 'Fan';
+  const eh = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const msg = (t, kind) => { const m = $('fdMsg'); m.textContent = t || ''; m.className = 'fd-msg' + (kind ? ' ' + kind : ''); m.hidden = !t; };
+  let armed = false, armTimer;
+
+  function view(){
+    $('fdName').value = st.folder;
+    const n = st.files.length;
+    setBoy(n);
+    $('fdCount').textContent = n ? `${n} file PDF` : '';
+    $('fdList').innerHTML = n ? st.files.map((f, i) =>
+      `<li><div class="fd-ico" aria-hidden="true">PDF</div><div class="fd-txt"><b title="${eh(f.name)}.pdf">${eh(f.name)}.pdf</b><small>${eh(f.meta)}</small></div>
+       <div class="fd-act"><button type="button" data-a="open" data-i="${i}" title="Xem PDF">Xem</button><button type="button" data-a="load" data-i="${i}" title="Nạp lại thông số vào form">Nạp</button><button type="button" data-a="del" data-i="${i}" title="Xoá file này" aria-label="Xoá ${eh(f.name)}">&times;</button></div></li>`).join('')
+      : '<li class="fd-empty">Chưa có file nào. Nhập thông số rồi bấm <b>Save PDF</b>, file sẽ nằm ở đây.</li>';
+    $('fdZip').disabled = $('fdMerge').disabled = $('fdClear').disabled = !n;
+    $('fdClear').textContent = armed ? 'Bấm lần nữa để xoá hết' : 'Xoá tất cả';
+    $('fdClear').classList.toggle('arm', armed);
+  }
+  const disarm = () => { armed = false; clearTimeout(armTimer); };
+
+  function snapshot(){
+    const g = id => $(id).textContent;
+    return { tag: g('shTag'), proj: g('shProj'), item: g('shItem'), quote: g('shQuote'), date: g('shDate'), model: g('shModel'), rpm: g('shRpm'), sub: g('shSub'),
+      svg1: $('chPower').innerHTML, svg2: $('chPress').innerHTML };
+  }
+  function formState(){
+    const o = {}; FIELDS.forEach(id => { o[id] = $(id).value; });
+    o.basis = document.querySelector('input[name=basis]:checked').value; return o;
+  }
+
+  async function savePdf(){
+    clearTimeout(timer); render();
+    if (!last){ msg('Chưa đủ thông số hợp lệ để lưu. Hãy nhập lưu lượng, áp suất và tốc độ lớn hơn 0.', 'warn'); return; }
+    let base = safe(last.model), name = base, k = 2;
+    while (st.files.some(f => f.name.toLowerCase() === name.toLowerCase())) name = base + '_' + (k++);
+    const i = last.i;
+    const meta = `${last.dual ? '2 điểm · ' : ''}${Math.round(i.Qh)} m³/h · ${Math.round(i.P)} Pa · ${last.mot.chosen} kW · ${$('shRpm').textContent || Math.round(i.rpm) + ' Rpm'}`;
+    st.files.push({ id: Date.now() + '_' + Math.random().toString(36).slice(2, 6), name, meta, snap: snapshot(), form: formState() });
+    disarm(); persist(); view();
+    msg(saveFail ? `Đã thêm ${name}.pdf vào thư mục. Bộ nhớ trình duyệt đầy nên danh sách sẽ mất khi tải lại trang, hãy Export folder sớm.` : `Đã thêm ${name}.pdf vào thư mục.`, saveFail ? 'warn' : 'ok');
+    const li = $('fdList').lastElementChild; if (li && li.scrollIntoView) li.scrollIntoView({ block: 'nearest' });
+    requestAnimationFrame(() => flyPlane($('fdList').lastElementChild));
+  }
+
+  function download(blob, fname){
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  async function withLogo(fn){
+    const { logo, warn } = await getLogo();
+    if (warn) { msg(warn, 'warn'); $('fdLogo').hidden = false; } else $('fdLogo').hidden = true;
+    return fn(logo);
+  }
+  const bytesOf = async blob => new Uint8Array(await blob.arrayBuffer());
+
+  /* ---- máy bay giấy bay từ nút Save tới thư mục, để lại khói ---- */
+  let sky = null;
+  function puff(x, y, size, life, dx, dy){
+    const p = document.createElement('div');
+    p.style.cssText = `position:fixed;left:${x - size / 2}px;top:${y - size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(190,232,250,.95),rgba(60,160,210,.7) 72%);filter:blur(1.5px);pointer-events:none`;
+    sky.appendChild(p);
+    const a = p.animate([{ transform: 'translate(0,0) scale(.4)', opacity: .85 }, { transform: `translate(${dx}px,${dy}px) scale(1.9)`, opacity: 0 }], { duration: life, easing: 'ease-out' });
+    a.onfinish = () => p.remove();
+  }
+  function mkSky(){ if (!sky){ sky = document.createElement('div'); sky.className = 'noprint'; sky.setAttribute('aria-hidden', 'true'); sky.style.cssText = 'position:fixed;inset:0;z-index:60;pointer-events:none;overflow:hidden'; document.body.appendChild(sky); } }
+  function flyPlane(target){
+    if (matchMedia('(prefers-reduced-motion:reduce)').matches || !target) return;
+    mkSky();
+    const b = $('btnSave').getBoundingClientRect(), t = target.getBoundingClientRect();
+    const x0 = b.left + b.width / 2, y0 = b.top + b.height / 2;
+    const x2 = Math.min(innerWidth - 30, Math.max(30, t.left + t.width * .5)), y2 = Math.min(innerHeight - 30, Math.max(30, t.top + t.height / 2));
+    const x1 = (x0 + x2) / 2, y1 = Math.max(60, Math.min(y0, y2) - 60);
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;left:0;top:0;width:80px;height:49px;margin:-24px 0 0 -40px;filter:drop-shadow(0 3px 3px rgba(0,0,0,.25));will-change:transform';
+    el.innerHTML = '<svg viewBox="0 0 48 30" width="80" height="49"><path d="M20 12 L11 1 L27 11Z" fill="#2f86a6"/><path d="M20 18 L11 29 L27 19Z" fill="#2f86a6"/><path d="M3 15 L1 7 L11 13Z" fill="#2f86a6"/><path d="M2 15 L16 10.5 L31 10.5 L47 15 L31 19.5 L16 19.5Z" fill="#fff" stroke="#0a6b8a" stroke-width="1.6" stroke-linejoin="round"/><circle cx="30" cy="15" r="2.4" fill="#0a6b8a"/><circle cx="23" cy="15" r="2" fill="#0a6b8a" opacity=".7"/></svg>';
+    sky.appendChild(el);
+    const T = 2600, t0 = performance.now(); let lastPuff = 0;
+    const ease = u => u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+    const at = u => { const v = 1 - u; return [v * v * x0 + 2 * v * u * x1 + u * u * x2, v * v * y0 + 2 * v * u * y1 + u * u * y2]; };
+    (function frame(now){
+      const raw = Math.min(1, (now - t0) / T), u = ease(raw), [x, y] = at(u), [xa, ya] = at(Math.min(1, u + .01));
+      const ang = Math.atan2(ya - y, xa - x) * 180 / Math.PI;
+      el.style.transform = `translate(${x}px,${y}px) rotate(${ang}deg) scale(${1 - .25 * u})`;
+      if (now - lastPuff > 70){ lastPuff = now; const r = ang * Math.PI / 180;
+        puff(x - Math.cos(r) * 34 + (Math.random() - .5) * 6, y - Math.sin(r) * 34 + (Math.random() - .5) * 6, 20 + Math.random() * 12, 700 + Math.random() * 300, -Math.cos(r) * 14 + (Math.random() - .5) * 16, -Math.sin(r) * 14 - 10 - Math.random() * 12); }
+      if (raw < 1) requestAnimationFrame(frame); else land();
+    })(t0);
+    function land(){
+      el.remove();
+      for (let k = 0; k < 9; k++){ const a = k / 9 * Math.PI * 2; puff(x2, y2, 16 + Math.random() * 10, 600 + Math.random() * 300, Math.cos(a) * 36, Math.sin(a) * 30 - 6); }
+      const ring = document.createElement('div');
+      ring.style.cssText = `position:fixed;left:${x2 - 18}px;top:${y2 - 18}px;width:36px;height:36px;border-radius:50%;border:3px solid var(--accent);pointer-events:none`;
+      sky.appendChild(ring); ring.animate([{ transform: 'scale(.3)', opacity: .9 }, { transform: 'scale(2.6)', opacity: 0 }], { duration: 650, easing: 'ease-out' }).onfinish = () => ring.remove();
+      target.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(.98)' }, { transform: 'scale(1)' }], { duration: 420, easing: 'ease-out' });
+      const ic = document.querySelector('.fd-head svg'); if (ic) ic.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-5px) rotate(-8deg)' }, { transform: 'translateY(0)' }], { duration: 380 });
+    }
+  }
+
+  /* ---- xoá cả thư mục: cậu bé cầm folder bỏ vào thùng rác ---- */
+  let trashBusy = false;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const FOLDER_SVG = '<svg viewBox="0 0 90 72" width="90" height="72"><defs><linearGradient id="tfB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#f2a93b"/></linearGradient></defs><path d="M4 12a6 6 0 0 1 6-6h20l8 9h42a6 6 0 0 1 6 6v43a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6z" fill="#e0922a"/><rect x="4" y="22" width="82" height="46" rx="6" fill="url(#tfB)"/><rect x="10" y="27" width="70" height="6" rx="3" fill="#fff" opacity=".35"/><rect x="30" y="42" width="30" height="5" rx="2.5" fill="#fff" opacity=".7"/></svg>';
+  /* ---- cậu bé nhìn nghiêng: đi bộ, ném (dùng cho cảnh vứt folder vào thùng rác) ---- */
+  const ease = u => u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+  function ik(a, b, l1, l2, sg){
+    const dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy) || 1, d = Math.min(dist, l1 + l2 - .01), ux = dx / dist, uy = dy / dist;
+    const aa = (l1 * l1 - l2 * l2 + d * d) / (2 * d), hh = Math.sqrt(Math.max(0, l1 * l1 - aa * aa));
+    return { x: a.x + ux * aa + (-uy) * hh * sg, y: a.y + uy * aa + ux * hh * sg };
+  }
+  function sideSvg(p){
+    const f = n => (+n).toFixed(1), gy = 160, mode = p.mode, k = p.k || 0, phi = p.phase || 0, E = ease(k), R = 48;
+    const bob = mode === 'walk' ? -Math.abs(Math.sin(phi)) * 2.6 : 0;
+    const lean = mode === 'walk' ? 3 : mode === 'windup' ? 3 - 17 * E : mode === 'throw' ? -14 + 30 * E : mode === 'follow' ? 16 - 4 * E : 0;
+    const hip = { x: 100 + lean * .25, y: 112 + bob }, sh = { x: 100 + lean, y: 84 + bob + (mode === 'follow' ? 5 * E : 0) };
+    // chân
+    let nearF, farF;
+    if (mode === 'walk'){
+      const ft = a => ({ x: 100 + 20 * Math.sin(a), y: gy - 5 - Math.max(0, Math.cos(a)) * 11 });
+      nearF = ft(phi); farF = ft(phi + Math.PI);
+    } else { farF = { x: 122, y: gy - 5 }; nearF = mode === 'follow' ? { x: 84 + 10 * E, y: gy - 5 - 10 * E } : { x: 84, y: gy - 5 }; }
+    const legPath = (foot, ox) => { const h = { x: hip.x + ox, y: hip.y }, kn = ik(h, foot, 24, 24, -1);
+      return `M${f(h.x)} ${f(h.y)} L${f(kn.x)} ${f(kn.y)} L${f(foot.x)} ${f(foot.y)}`; };
+    const shoe = foot => `<ellipse cx="${f(foot.x + 6)}" cy="${f(foot.y + 5)}" rx="13" ry="7" fill="url(#bShoe)"/>`;
+    // tay
+    const carry = { x: sh.x + 27, y: sh.y + 26 };
+    let nearH, farH, rot = 0, folder = !p.released;
+    if (mode === 'walk'){ nearH = carry; farH = { x: carry.x + 2, y: carry.y + 2 }; }
+    else if (mode === 'windup'){ const a = -140 * Math.PI / 180; nearH = { x: lerp(carry.x, sh.x + R * Math.cos(a), E), y: lerp(carry.y, sh.y + 4 + R * Math.sin(a), E) };
+      farH = { x: lerp(carry.x + 2, sh.x + 30, E), y: lerp(carry.y + 2, sh.y + 4, E) }; rot = -50 * E; }
+    else if (mode === 'throw'){ const a = (-140 + 170 * E) * Math.PI / 180; nearH = { x: sh.x + R * Math.cos(a), y: sh.y + 4 + R * Math.sin(a) }; farH = { x: sh.x + 30 - 12 * E, y: sh.y + 4 + 14 * E }; rot = -50 + 130 * E; }
+    else { const a = (30 + 30 * E) * Math.PI / 180; nearH = { x: sh.x + R * Math.cos(a), y: sh.y + 4 + R * Math.sin(a) }; farH = { x: sh.x - 6, y: sh.y + 30 }; rot = 80; }
+    const S = { x: sh.x, y: sh.y + 4 };
+    const arm = (h, sg, col) => { const el = ik(S, h, 25, 25, sg);
+      return `<path d="M${f(S.x)} ${f(S.y)} L${f(el.x)} ${f(el.y)}" stroke="${col}" stroke-width="13" stroke-linecap="round" fill="none"/>` +
+        `<path d="M${f(el.x)} ${f(el.y)} L${f(h.x)} ${f(h.y)}" stroke="#f3bd98" stroke-width="10.5" stroke-linecap="round" fill="none"/><circle cx="${f(h.x)}" cy="${f(h.y)}" r="7" fill="url(#bSkin)"/>`; };
+    const foldG = `<g transform="translate(${f(nearH.x + (mode === 'walk' ? 4 : 0))} ${f(nearH.y - (mode === 'walk' ? 4 : 0))}) rotate(${f(rot)}) scale(.5)"><g transform="translate(-45 -36)">${FOLDER_SVG.replace(/<svg[^>]*>|<\/svg>/g, '').replace('tfB', 'tfS')}</g></g>`;
+    // đầu
+    const hc = { x: sh.x + 4, y: sh.y - 34 };
+    const mouth = mode === 'throw' ? `<ellipse cx="${f(hc.x + 18)}" cy="${f(hc.y + 15)}" rx="5" ry="${f(3 + 3 * Math.sin(Math.PI * k))}" fill="#7a2e22"/>` :
+      mode === 'windup' ? `<path d="M${f(hc.x + 11)} ${f(hc.y + 15)} h11" stroke="#7a3b2e" stroke-width="2.8" stroke-linecap="round"/>` :
+      `<path d="M${f(hc.x + 11)} ${f(hc.y + 13)} Q ${f(hc.x + 18)} ${f(hc.y + 21)} ${f(hc.x + 25)} ${f(hc.y + 12)}" fill="none" stroke="#7a3b2e" stroke-width="2.6" stroke-linecap="round"/>`;
+    const eye = mode === 'follow' ? `<path d="M${f(hc.x + 8)} ${f(hc.y)} q 5 -6 10 0" fill="none" stroke="#2b2118" stroke-width="2.8" stroke-linecap="round"/>` :
+      `<ellipse cx="${f(hc.x + 13)}" cy="${f(hc.y - 1)}" rx="3.4" ry="${mode === 'windup' ? 3 : 4.6}" fill="#2b2118"/><circle cx="${f(hc.x + 14)}" cy="${f(hc.y - 2.8)}" r="1.2" fill="#fff"/>`;
+    const browA = mode === 'windup' || mode === 'throw' ? 14 : -4;
+    const svg = `<svg viewBox="0 0 200 172" width="100%" aria-hidden="true"><defs>
+      <radialGradient id="bSkin" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffe6d2"/><stop offset="1" stop-color="#f1b48f"/></radialGradient>
+      <radialGradient id="bShoe" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#ff9a73"/><stop offset="1" stop-color="#d4502b"/></radialGradient>
+      <radialGradient id="bHair" cx=".35" cy=".25" r=".9"><stop offset="0" stop-color="#7a5a45"/><stop offset="1" stop-color="#3b281c"/></radialGradient>
+      <linearGradient id="tfS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#f2a93b"/></linearGradient></defs>
+      <ellipse cx="${f(104 + lean * .5)}" cy="166" rx="48" ry="6" fill="#000" opacity=".16"/>
+      ${arm(farH, 1, '#1f6f8e')}
+      <path d="${legPath(farF, 3)}" fill="none" stroke="#2c3850" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>${shoe(farF)}
+      <path d="M${f(hip.x)} ${f(hip.y)} L${f(sh.x)} ${f(sh.y)}" stroke="#2f9fc4" stroke-width="36" stroke-linecap="round"/>
+      <path d="M${f(hip.x - 4)} ${f(hip.y - 4)} L${f(sh.x - 4)} ${f(sh.y + 2)}" stroke="#fff" stroke-opacity=".2" stroke-width="7" stroke-linecap="round"/>
+      <path d="${legPath(nearF, -3)}" fill="none" stroke="#3d4b66" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>${shoe(nearF)}
+      <circle cx="${f(hc.x)}" cy="${f(hc.y)}" r="29" fill="url(#bSkin)"/>
+      <circle cx="${f(hc.x - 5)}" cy="${f(hc.y + 5)}" r="5.5" fill="#f1b48f"/>
+      <path d="M${f(hc.x - 29)} ${f(hc.y + 3)} C ${f(hc.x - 31)} ${f(hc.y - 36)}, ${f(hc.x + 22)} ${f(hc.y - 42)}, ${f(hc.x + 29)} ${f(hc.y - 9)} C ${f(hc.x + 18)} ${f(hc.y - 22)}, ${f(hc.x + 4)} ${f(hc.y - 21)}, ${f(hc.x - 2)} ${f(hc.y - 11)} C ${f(hc.x - 10)} ${f(hc.y - 4)}, ${f(hc.x - 22)} ${f(hc.y - 1)}, ${f(hc.x - 29)} ${f(hc.y + 3)}Z" fill="url(#bHair)"/>
+      <path d="M${f(hc.x - 2)} ${f(hc.y - 30)} Q ${f(hc.x + 2)} ${f(hc.y - 43)} ${f(hc.x + 10)} ${f(hc.y - 33)}" fill="none" stroke="#3b281c" stroke-width="4" stroke-linecap="round"/>
+      <path d="M${f(hc.x + 6)} ${f(hc.y - 10)} L${f(hc.x + 20)} ${f(hc.y - 10 + browA / 3)}" stroke="#4a3426" stroke-width="2.8" stroke-linecap="round"/>
+      ${eye}<circle cx="${f(hc.x + 28)}" cy="${f(hc.y + 5)}" r="4" fill="#f1b48f"/>
+      <circle cx="${f(hc.x + 14)}" cy="${f(hc.y + 10)}" r="5" fill="#ff8f8f" opacity=".45"/>${mouth}
+      ${arm(nearH, 1, '#2f9fc4')}${folder ? foldG : ''}</svg>`;
+    return { svg, hand: nearH };
+  }
+  function runAnim(ms, fn){ return new Promise(res => { const t0 = performance.now(); (function fr(n){ const u = Math.min(1, (n - t0) / ms); fn(u); if (u < 1) requestAnimationFrame(fr); else res(); })(t0); }); }
+
+  async function trashFolder(){
+    if (trashBusy) return; trashBusy = true;
+    const panel = $('folder'), bin = $('fdBin');
+    if (matchMedia('(prefers-reduced-motion:reduce)').matches){ st.files = []; persist(); view(); msg('Đã xoá toàn bộ thư mục.', ''); trashBusy = false; return; }
+    mkSky(); msg('', '');
+    const pr = panel.getBoundingClientRect(), hr = boyHost.getBoundingClientRect(), px = pr.left + pr.width / 2, py = pr.top + pr.height / 2;
+    const hx = hr.left + hr.width / 2, hy = hr.top + 14;
+    const fl = document.createElement('div');
+    fl.style.cssText = 'position:fixed;left:0;top:0;width:90px;height:72px;margin:-36px 0 0 -45px;z-index:70;pointer-events:none;filter:drop-shadow(0 4px 4px rgba(0,0,0,.25));opacity:0';
+    fl.innerHTML = FOLDER_SVG; sky.appendChild(fl);
+    boyGoal = 0; if (!boyRaf) boyRaf = requestAnimationFrame(boyStep); boySay.textContent = 'Vứt hết đi nè!';
+    // 1) khung thu nhỏ thành folder bay vào tay cậu bé
+    const shrink = panel.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(.15)', opacity: 0 }], { duration: 450, easing: 'ease-in', fill: 'forwards' });
+    await fl.animate([{ opacity: 0, transform: `translate(${px}px,${py}px) scale(1.5)` }, { opacity: 1, transform: `translate(${px}px,${py}px) scale(1.5)`, offset: .3 },
+      { opacity: 1, transform: `translate(${hx}px,${hy}px) scale(.95)` }], { duration: 900, easing: 'ease-in-out', fill: 'forwards' }).finished;
+    cancelAnimationFrame(boyRaf); boyRaf = 0; boyT = 0; fl.remove();
+    // 2) quay người sang phải
+    const draw = p => { const r = sideSvg(p); boyHost.innerHTML = r.svg; return r; };
+    const WALK = 46;
+    await boyHost.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(.04)' }], { duration: 140, fill: 'forwards' }).finished; draw({ mode: 'walk', phase: 0 });
+    await boyHost.animate([{ transform: 'scaleX(.04)' }, { transform: 'scaleX(1)' }], { duration: 140, fill: 'forwards' }).finished;
+    boyHost.getAnimations().forEach(a => a.cancel());
+    // 3) bước đi bình thường tới gần thùng, tay ôm folder trước ngực
+    const setX = (x, flip) => { boyHost.style.transform = `translateX(${x}px)${flip ? ' scaleX(-1)' : ''}`; };
+    await runAnim(1800, u => { setX(WALK * u); draw({ mode: 'walk', phase: u * 3.2 * Math.PI * 2 }); });
+    // 4) dừng lại, lấy đà, ném
+    boySay.textContent = 'Nhắm... phóng!';
+    await runAnim(550, u => { draw({ mode: 'windup', k: u }); });
+    bin.classList.add('open');
+    let released = false, flight = null;
+    await runAnim(300, u => {
+      const r = draw({ mode: 'throw', k: u, released });
+      if (!released && u >= .62){
+        released = true;
+        const rc = boyHost.getBoundingClientRect(), sc = rc.width / 200, sx = rc.left + r.hand.x * sc, sy = rc.top + r.hand.y * sc;
+        const br = bin.getBoundingClientRect(), bx = br.left + br.width / 2, by = br.top + 4;
+        fl.style.opacity = 1; sky.appendChild(fl);
+        const keys = [], N = 22, peak = 70 + Math.max(0, sy - by) * .2;
+        for (let k = 0; k <= N; k++){ const t = k / N; keys.push({ transform: `translate(${sx + (bx - sx) * t}px,${sy + (by - sy) * t - 4 * peak * t * (1 - t)}px) rotate(${t * 520}deg) scale(${.7 - .2 * t})`, opacity: 1 }); }
+        keys.push({ transform: `translate(${bx}px,${by + 30}px) rotate(560deg) scale(.4)`, opacity: 0 });
+        flight = fl.animate(keys, { duration: 1050, easing: 'linear', fill: 'forwards' }).finished;
+      }
+    });
+    await runAnim(550, u => { draw({ mode: 'follow', k: u, released: true }); });
+    await flight; fl.remove();
+    const br = bin.getBoundingClientRect(), bx = br.left + br.width / 2, by = br.top + 4;
+    boySay.textContent = 'Trúng phóc!';
+    await sleep(100); bin.classList.remove('open'); await sleep(220);
+    bin.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-7deg)' }, { transform: 'rotate(6deg)' }, { transform: 'rotate(-3deg)' }, { transform: 'rotate(0)' }], { duration: 420 });
+    for (let k = 0; k < 7; k++){ const a = Math.PI * (1.1 + k / 7 * .8); puff(bx, by + 6, 12 + Math.random() * 8, 650 + Math.random() * 250, Math.cos(a) * 30, Math.sin(a) * 34); }
+    // 5) dọn dữ liệu rồi đi bộ về chỗ cũ
+    st.files = []; persist(); view(); boySay.textContent = 'Trúng phóc!'; cancelAnimationFrame(boyRaf); boyRaf = 0; boyT = 0;
+    shrink.cancel();
+    panel.animate([{ transform: 'scale(.92)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 380, easing: 'ease-out' });
+    msg('Đã xoá toàn bộ thư mục.', '');
+    await boyHost.animate([{ transform: `translateX(${WALK}px) scaleX(1)` }, { transform: `translateX(${WALK}px) scaleX(-.04)` }], { duration: 140, fill: 'forwards' }).finished;
+    boyHost.getAnimations().forEach(a => a.cancel());
+    await runAnim(1500, u => { setX(WALK * (1 - u), true); draw({ mode: 'walk', phase: u * 3 * Math.PI * 2, released: true }); });
+    boyHost.style.transform = ''; boyDraw(0);
+    boySay.textContent = 'Xong! Nhẹ người~';
+    trashBusy = false;
+  }
+  $('btnSave').addEventListener('click', savePdf);
+  $('fdName').addEventListener('input', () => { st.folder = $('fdName').value; persist(); });
+  $('fdLogo').addEventListener('click', () => $('logoFile').click());
+  $('fdList').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-a]'); if (!b) return;
+    const i = +b.dataset.i, f = st.files[i]; if (!f) return;
+    if (b.dataset.a === 'del'){ st.files.splice(i, 1); persist(); view(); msg(`Đã xoá ${f.name}.pdf.`, ''); }
+    else if (b.dataset.a === 'load'){
+      for (const id of FIELDS) $(id).value = f.form[id] != null ? f.form[id] : (['inTag','inQ2','inP2','inMotor2'].includes(id) ? '' : $(id).value);
+      const r = document.querySelector(`input[name=basis][value=${f.form.basis}]`); if (r) r.checked = true;
+      clearTimeout(timer); render(); msg(`Đã nạp lại thông số của ${f.name}. Sửa xong bấm Save PDF để thêm bản mới.`, 'ok');
+    } else {
+      const win = window.open('', '_blank');
+      await withLogo(async logo => { const url = URL.createObjectURL(buildPdf([f.snap], logo));
+        if (win) win.location = url; else download(buildPdf([f.snap], logo), f.name + '.pdf'); });
+    }
+  });
+  $('fdZip').addEventListener('click', () => withLogo(async logo => {
+    const dir = safe(st.folder), files = [];
+    for (const f of st.files) files.push({ name: `${dir}/${f.name}.pdf`, bytes: await bytesOf(buildPdf([f.snap], logo)) });
+    download(zip(files), dir + '.zip'); msg(`Đã xuất ${dir}.zip gồm ${files.length} file PDF.`, 'ok');
+  }));
+  $('fdMerge').addEventListener('click', () => withLogo(async logo => {
+    const dir = safe(st.folder); download(buildPdf(st.files.map(f => f.snap), logo), dir + '.pdf');
+    msg(`Đã xuất ${dir}.pdf gồm ${st.files.length} trang.`, 'ok');
+  }));
+  $('fdClear').addEventListener('click', () => {
+    if (!armed){ armed = true; armTimer = setTimeout(() => { armed = false; view(); }, 4000); view(); return; }
+    disarm(); view(); trashFolder();
+  });
+  $('logoFile').addEventListener('change', () => { logoCache = { src: null, val: null }; setTimeout(() => { $('fdLogo').hidden = true; }, 0); });
+  $('logoDel').addEventListener('click', () => { logoCache = { src: null, val: null }; });
+
+  window.__fanPdf = { buildPdf, zip, getLogo, state: () => st };   // phục vụ kiểm thử
+  view();
+})();
+
+try { if (matchMedia('(prefers-reduced-motion:reduce)').matches) $('bgSvg').pauseAnimations(); } catch (e) {}
+render();
+</script>
+</body>
+</html>
